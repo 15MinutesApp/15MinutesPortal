@@ -17,10 +17,16 @@ export async function POST(request: NextRequest) {
       "Content-Type": "application/json",
     };
 
-    // Only add Authorization header if present
-    const authHeader = request.headers.get("authorization");
-    if (authHeader) {
-      cleanHeaders["Authorization"] = authHeader;
+    // Check for HTTP-only cookies first, then fallback to Authorization header
+    const accessToken = request.cookies.get("accessToken")?.value;
+    if (accessToken) {
+      cleanHeaders["Authorization"] = `Bearer ${accessToken}`;
+    } else {
+      // Fallback to Authorization header for backward compatibility
+      const authHeader = request.headers.get("authorization");
+      if (authHeader) {
+        cleanHeaders["Authorization"] = authHeader;
+      }
     }
 
     const response = await fetch(GRAPHQL_ENDPOINT, {

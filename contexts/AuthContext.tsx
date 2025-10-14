@@ -25,18 +25,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Check for existing tokens on mount
   useEffect(() => {
-    const storedAccessToken = tokenStorage.getAccessToken();
-    const storedRefreshToken = tokenStorage.getRefreshToken();
-    const storedEmail = tokenStorage.getAdminEmail();
+    const checkAuthStatus = async () => {
+      try {
+        const response = await fetch("/api/auth/status");
+        const data = await response.json();
 
-    if (storedAccessToken && storedRefreshToken) {
-      setAccessToken(storedAccessToken);
-      setRefreshToken(storedRefreshToken);
-      setAdminEmail(storedEmail);
-      setIsAuthenticated(true);
-    }
+        if (data.isAuthenticated) {
+          setIsAuthenticated(true);
+          setAdminEmail(data.adminEmail);
+          // Tokens are now in HTTP-only cookies, not accessible via JS
+          setAccessToken("http-only");
+          setRefreshToken("http-only");
+        }
+      } catch (error) {
+        console.error("Auth status check failed:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    setIsLoading(false);
+    checkAuthStatus();
   }, []);
 
   const login = (
@@ -44,18 +52,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     newRefreshToken: string,
     email?: string
   ) => {
-    tokenStorage.setTokens(newAccessToken, newRefreshToken);
+    // Tokens are now stored in HTTP-only cookies by the API
     if (email) {
-      tokenStorage.setAdminEmail(email);
       setAdminEmail(email);
     }
-    setAccessToken(newAccessToken);
-    setRefreshToken(newRefreshToken);
+    setAccessToken("http-only");
+    setRefreshToken("http-only");
     setIsAuthenticated(true);
   };
 
-  const logout = () => {
-    tokenStorage.clearTokens();
+  const logout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+
     setAccessToken(null);
     setRefreshToken(null);
     setAdminEmail(null);

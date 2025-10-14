@@ -17,7 +17,7 @@ const nunito = Nunito({
 export const metadata: Metadata = {
   title: "15 Minutes Carpenter",
   description: "15minutes mobil uygulama yönetim paneli",
-  generator: "v0.app",
+  generator: "15 Minutes",
 };
 
 export default function RootLayout({

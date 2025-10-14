@@ -109,7 +109,6 @@ export async function verifyBackupCode(
  * Get admin users (requires authentication)
  */
 export async function getAdminUsers(
-  accessToken: string,
   page: number = 1,
   limit: number = 10
 ): Promise<AdminUser[]> {
@@ -123,11 +122,7 @@ export async function getAdminUsers(
     }
   `;
 
-  const data = await graphqlRequest<UsersResponse>(
-    query,
-    { page, limit },
-    accessToken
-  );
+  const data = await graphqlRequest<UsersResponse>(query, { page, limit });
 
   return data.Admin_users;
 }

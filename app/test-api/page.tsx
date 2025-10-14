@@ -30,7 +30,7 @@ export default function TestApiPage() {
 
     setIsLoading(true);
     try {
-      const result = await getAdminUsers(accessToken, page, limit);
+      const result = await getAdminUsers(page, limit);
       setUsers(result);
       toast.success(`${result.length} kullanıcı bulundu!`);
     } catch (error) {

@@ -3,8 +3,11 @@
  * Handles all GraphQL requests to the backend
  */
 
-// Use proxy endpoint to avoid CORS issues
-const GRAPHQL_ENDPOINT = "/api/graphql";
+// Use direct GraphQL endpoint for server-side, proxy for client-side
+const GRAPHQL_ENDPOINT =
+  typeof window === "undefined"
+    ? "https://api.15minutes.app/graphql"
+    : "/api/graphql";
 
 interface GraphQLResponse<T> {
   data?: T;
@@ -32,23 +35,19 @@ export class GraphQLError extends Error {
  */
 export async function graphqlRequest<T>(
   query: string,
-  variables?: Record<string, any>,
-  token?: string
+  variables?: Record<string, any>
 ): Promise<T> {
   console.log("GraphQL Request:", {
     endpoint: GRAPHQL_ENDPOINT,
     query: query.substring(0, 100) + "...",
     variables,
-    hasToken: !!token,
   });
 
   const headers: HeadersInit = {
     "Content-Type": "application/json",
   };
 
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
+  // Tokens are now automatically included via HTTP-only cookies
 
   try {
     const requestBody = {

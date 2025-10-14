@@ -37,7 +37,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
   const [backupCode, setBackupCode] = useState("");
-  const [challengeToken, setChallengeToken] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [useBackupCode, setUseBackupCode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -50,24 +49,31 @@ export default function LoginPage() {
 
     try {
       console.log("Attempting login with:", { email, password: "***" });
-      console.log("API URL:", process.env.NEXT_PUBLIC_GRAPHQL_API_URL);
 
-      const token = await startPasswordLogin(email, password);
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Login failed");
+      }
+
       console.log("Login successful, challenge token received");
-
-      setChallengeToken(token);
       setStep(2);
-      toast.success("Email ve şifre doğrulandı. Lütfen TOTP kodunuzu girin.");
+      toast.success(data.message);
     } catch (error) {
       console.error("Login error details:", error);
-
-      if (error instanceof GraphQLError) {
-        toast.error(
-          error.message || "Giriş başarısız. Lütfen bilgilerinizi kontrol edin."
-        );
-      } else {
-        toast.error("Bir hata oluştu. Lütfen tekrar deneyin.");
-      }
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Bir hata oluştu. Lütfen tekrar deneyin."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -78,27 +84,36 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      let result;
-      if (useBackupCode) {
-        result = await verifyBackupCode(challengeToken, backupCode);
-      } else {
-        result = await verifyTotp(challengeToken, otp);
+      const response = await fetch("/api/auth/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-email": email,
+        },
+        body: JSON.stringify({
+          otp: useBackupCode ? undefined : otp,
+          backupCode: useBackupCode ? backupCode : undefined,
+          useBackupCode,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Verification failed");
       }
 
-      const { accessToken, refreshToken } = result;
-      login(accessToken, refreshToken, email);
-      toast.success("Giriş başarılı! Yönlendiriliyorsunuz...");
+      // Update auth context with email only (tokens are now in HTTP-only cookies)
+      login("", "", email);
+      toast.success(data.message);
       router.push("/");
     } catch (error) {
-      if (error instanceof GraphQLError) {
-        const errorMessage = useBackupCode
-          ? "Backup kodu hatalı. Lütfen tekrar deneyin."
-          : "TOTP kodu hatalı. Lütfen tekrar deneyin.";
-        toast.error(error.message || errorMessage);
-      } else {
-        toast.error("Bir hata oluştu. Lütfen tekrar deneyin.");
-      }
       console.error("Verification error:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Bir hata oluştu. Lütfen tekrar deneyin."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -120,7 +135,7 @@ export default function LoginPage() {
 
       {/* Sağ taraf - Login formu */}
       <div className="w-full lg:w-1/3 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md border-0 shadow-xl border-t-2 shadow-pink-500/30">
+        <Card className="!rounded-3xl w-full max-w-md border-0 shadow-xl border-t-2 shadow-pink-500/30">
           <CardHeader className="space-y-4 text-center">
             <div className="flex justify-center">
               <Image
@@ -152,11 +167,9 @@ export default function LoginPage() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="ornek@email.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="border-[#FFCDE1] focus-[#CDFBFF]"
                   />
                 </div>
                 <div className="space-y-2">
@@ -167,11 +180,9 @@ export default function LoginPage() {
                     <InputGroupInput
                       id="password"
                       type={showPassword ? "text" : "password"}
-                      placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="border-[#FFCDE1] focus--[#CDFBFF]"
                     />
                     <InputGroupAddon align="inline-end">
                       <InputGroupButton
@@ -180,6 +191,7 @@ export default function LoginPage() {
                           showPassword ? "Şifreyi gizle" : "Şifreyi göster"
                         }
                         onClick={() => setShowPassword((v) => !v)}
+                        className="cursor-pointer"
                       >
                         {showPassword ? <EyeOff /> : <Eye />}
                       </InputGroupButton>
@@ -188,7 +200,7 @@ export default function LoginPage() {
                 </div>
                 <Button
                   type="submit"
-                  className="w-full bg-[#FFCDE1] hover:bg-[#CDFBFF] text-[#1C1C1C]"
+                  className="w-full bg-[#FFCDE1] hover:bg-[#CDFBFF] text-[#1C1C1C] cursor-pointer"
                   disabled={isLoading}
                 >
                   {isLoading ? "Gönderiliyor..." : "Devam Et"}
@@ -212,7 +224,7 @@ export default function LoginPage() {
                           setOtp("");
                           setBackupCode("");
                         }}
-                        className="underline text-sm text-[#e0528a] hover:opacity-80"
+                        className="underline text-sm text-[#e0528a] hover:opacity-80 cursor-pointer"
                       >
                         TOTP Kodu
                       </button>
@@ -224,7 +236,7 @@ export default function LoginPage() {
                           setOtp("");
                           setBackupCode("");
                         }}
-                        className="underline text-sm text-[#e0528a] hover:opacity-80"
+                        className="underline text-sm text-[#e0528a] hover:opacity-80 cursor-pointer"
                       >
                         Backup Kod
                       </button>
@@ -250,7 +262,7 @@ export default function LoginPage() {
                 <div className="space-y-2">
                   <Button
                     type="submit"
-                    className="w-full bg-[#FFCDE1] hover:bg-[#CDFBFF] text-[#1C1C1C]"
+                    className="w-full bg-[#FFCDE1] hover:bg-[#CDFBFF] text-[#1C1C1C] cursor-pointer"
                     disabled={isLoading}
                   >
                     {isLoading ? "Doğrulanıyor..." : "Giriş Yap"}

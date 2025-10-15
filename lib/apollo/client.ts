@@ -15,18 +15,11 @@ const httpLink = createHttpLink({
 });
 
 // Auth Link - token'ı header'a ekler
+// Note: Tokens are now in HTTP-only cookies and handled by /api/graphql endpoint
 const authLink = setContext((_, { headers }) => {
-  // Server-side rendering sırasında localStorage'a erişmeyi engelle
-  if (typeof window === "undefined") {
-    return { headers };
-  }
-
-  const token = tokenStorage.getAccessToken();
-
   return {
     headers: {
       ...headers,
-      authorization: token ? `Bearer ${token}` : "",
     },
   };
 });

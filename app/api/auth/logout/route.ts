@@ -1,16 +1,23 @@
 import { NextResponse } from "next/server";
 
 export async function POST() {
-  const response = NextResponse.json({
-    success: true,
-    message: "Logged out successfully",
-  });
+  try {
+    const response = NextResponse.json({
+      message: "Logout successful",
+    });
 
-  // Clear all HTTP-only cookies
-  response.cookies.delete("accessToken");
-  response.cookies.delete("refreshToken");
-  response.cookies.delete("challengeToken");
-  response.cookies.delete("adminEmail");
+    // Clear all auth cookies
+    response.cookies.delete("accessToken");
+    response.cookies.delete("refreshToken");
+    response.cookies.delete("adminEmail");
+    response.cookies.delete("challengeToken");
 
-  return response;
+    return response;
+  } catch (error) {
+    console.error("Logout error:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
+      { status: 500 }
+    );
+  }
 }

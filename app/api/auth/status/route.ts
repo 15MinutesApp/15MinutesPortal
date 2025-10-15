@@ -1,12 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 export async function GET(request: NextRequest) {
-  const accessToken = request.cookies.get("accessToken")?.value;
-  const refreshToken = request.cookies.get("refreshToken")?.value;
-  const adminEmail = request.cookies.get("adminEmail")?.value;
+  try {
+    const cookieStore = await cookies();
+    const accessToken = cookieStore.get("accessToken")?.value;
+    const adminEmail = cookieStore.get("adminEmail")?.value;
 
-  return NextResponse.json({
-    isAuthenticated: !!(accessToken && refreshToken),
-    adminEmail: adminEmail || null,
-  });
+    if (accessToken) {
+      return NextResponse.json({
+        isAuthenticated: true,
+        adminEmail: adminEmail || null,
+      });
+    }
+
+    return NextResponse.json({
+      isAuthenticated: false,
+      adminEmail: null,
+    });
+  } catch (error) {
+    console.error("Auth status check error:", error);
+    return NextResponse.json({
+      isAuthenticated: false,
+      adminEmail: null,
+    });
+  }
 }

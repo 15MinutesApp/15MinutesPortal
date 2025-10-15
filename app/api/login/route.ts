@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password } = await request.json();
+    const { totpCode, challengeToken, email } = await request.json();
 
     // Get client IP and User Agent
     const clientIp =
@@ -12,16 +13,31 @@ export async function POST(request: NextRequest) {
 
     const userAgent = request.headers.get("user-agent") || "unknown";
 
-    // GraphQL mutation for password login
+    // Get challenge token from cookie if not provided in body
+    const cookieStore = await cookies();
+    const storedChallengeToken =
+      challengeToken || cookieStore.get("challengeToken")?.value;
+
+    if (!storedChallengeToken) {
+      return NextResponse.json(
+        { error: "Challenge token not found. Please start login again." },
+        { status: 400 }
+      );
+    }
+
+    // GraphQL mutation for TOTP verification
     const graphqlQuery = {
       query: `
-        mutation StartPasswordLogin($email: String!, $password: String!) {
-          Admin_startPasswordLogin(email: $email, password: $password)
+        mutation VerifyTotp($challengeToken: String!, $totpCode: String!) {
+          Admin_verifyTotp(challengeToken: $challengeToken, totpCode: $totpCode) {
+            accessToken
+            refreshToken
+          }
         }
       `,
       variables: {
-        email,
-        password,
+        challengeToken: storedChallengeToken,
+        totpCode,
       },
     };
 
@@ -53,7 +69,7 @@ export async function POST(request: NextRequest) {
         body: text,
       });
       return NextResponse.json(
-        { error: `Authentication failed: ${response.statusText}` },
+        { error: `Verification failed: ${response.statusText}` },
         { status: response.status }
       );
     }
@@ -75,17 +91,49 @@ export async function POST(request: NextRequest) {
     if (data.errors) {
       console.error("GraphQL errors:", data.errors);
       return NextResponse.json(
-        { error: data.errors[0]?.message || "Authentication failed" },
+        { error: data.errors[0]?.message || "Verification failed" },
         { status: 400 }
       );
     }
 
-    return NextResponse.json({
-      message: "Email ve şifre doğrulandı. Lütfen TOTP kodunuzu girin.",
-      challengeToken: data.data.Admin_startPasswordLogin,
+    const { accessToken, refreshToken } = data.data.Admin_verifyTotp;
+
+    // Set tokens as HTTP-only cookies
+    const nextResponse = NextResponse.json({
+      message: "Giriş başarılı! Yönlendiriliyorsunuz...",
     });
+
+    // Set cookies with secure flags
+    nextResponse.cookies.set("accessToken", accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+    });
+
+    nextResponse.cookies.set("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+    });
+
+    // Store admin email in cookie (not HTTP-only so client can read it)
+    if (email) {
+      nextResponse.cookies.set("adminEmail", email, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+      });
+    }
+
+    // Clear challenge token
+    nextResponse.cookies.delete("challengeToken");
+
+    return nextResponse;
   } catch (error) {
-    console.error("Login error:", error);
+    console.error("Verification error:", error);
     return NextResponse.json(
       { error: "Internal Server Error" },
       { status: 500 }

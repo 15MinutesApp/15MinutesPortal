@@ -29,12 +29,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  startPasswordLogin,
-  verifyTotp,
-  verifyBackupCode,
-} from "@/lib/auth/authService";
-import { GraphQLError } from "@/lib/api/graphql";
 import { toast } from "sonner";
 
 export default function LoginPage() {
@@ -43,6 +37,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
   const [backupCode, setBackupCode] = useState("");
+  const [challengeToken, setChallengeToken] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [useBackupCode, setUseBackupCode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -71,6 +66,7 @@ export default function LoginPage() {
       }
 
       console.log("Login successful, challenge token received");
+      setChallengeToken(data.challengeToken);
       setStep(2);
       toast.success(data.message);
     } catch (error) {
@@ -97,6 +93,8 @@ export default function LoginPage() {
         },
         body: JSON.stringify({
           totpCode: useBackupCode ? backupCode : otp,
+          challengeToken,
+          email,
         }),
       });
 

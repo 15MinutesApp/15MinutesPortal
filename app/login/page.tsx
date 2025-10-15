@@ -14,6 +14,12 @@ import {
   InputGroupButton,
   InputGroupInput,
 } from "@/components/ui/input-group";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSeparator,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
 import { Eye, EyeOff } from "lucide-react";
 import {
   Card,
@@ -84,31 +90,31 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/auth/verify", {
+      const response = await fetch("/api/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "x-admin-email": email,
         },
         body: JSON.stringify({
-          otp: useBackupCode ? undefined : otp,
-          backupCode: useBackupCode ? backupCode : undefined,
-          useBackupCode,
+          totpCode: useBackupCode ? backupCode : otp,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Verification failed");
+        throw new Error(data.error || "Login failed");
       }
+
+      // Handle successful login
+      console.log("Login successful!", data);
 
       // Update auth context with email only (tokens are now in HTTP-only cookies)
       login("", "", email);
       toast.success(data.message);
       router.push("/");
     } catch (error) {
-      console.error("Verification error:", error);
+      console.error("Login error:", error);
       toast.error(
         error instanceof Error
           ? error.message
@@ -149,7 +155,7 @@ export default function LoginPage() {
             <CardTitle className="text-2xl font-bold text-foreground">
               {step === 1 ? "Giriş Yap" : "Doğrulama"}
             </CardTitle>
-            <CardDescription className="text-muted-foreground">
+            <CardDescription className="mb-3 text-muted-foreground">
               {step === 1
                 ? "15 Minutes Carpenter'a hoş geldiniz."
                 : useBackupCode
@@ -208,14 +214,51 @@ export default function LoginPage() {
               </form>
             ) : (
               <form onSubmit={handleSecondStep} className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label
-                      htmlFor={useBackupCode ? "backupCode" : "otp"}
-                      className="text-foreground"
-                    >
-                      {useBackupCode ? "Backup Kodu" : "TOTP Kodu"}
-                    </Label>
+                <div className="space-y-3">
+                  <div className="flex justify-center">
+                    {useBackupCode ? (
+                      <InputOTP
+                        maxLength={8}
+                        value={backupCode}
+                        onChange={(value) => setBackupCode(value.toUpperCase())}
+                        pattern="[A-Z0-9]*"
+                      >
+                        <InputOTPGroup>
+                          <InputOTPSlot index={0} />
+                          <InputOTPSlot index={1} />
+                          <InputOTPSlot index={2} />
+                          <InputOTPSlot index={3} />
+                        </InputOTPGroup>
+                        <InputOTPSeparator />
+                        <InputOTPGroup>
+                          <InputOTPSlot index={4} />
+                          <InputOTPSlot index={5} />
+                          <InputOTPSlot index={6} />
+                          <InputOTPSlot index={7} />
+                        </InputOTPGroup>
+                      </InputOTP>
+                    ) : (
+                      <InputOTP
+                        maxLength={6}
+                        value={otp}
+                        onChange={(value) => setOtp(value)}
+                        pattern="[0-9]*"
+                      >
+                        <InputOTPGroup>
+                          <InputOTPSlot index={0} />
+                          <InputOTPSlot index={1} />
+                          <InputOTPSlot index={2} />
+                        </InputOTPGroup>
+                        <InputOTPSeparator />
+                        <InputOTPGroup>
+                          <InputOTPSlot index={3} />
+                          <InputOTPSlot index={4} />
+                          <InputOTPSlot index={5} />
+                        </InputOTPGroup>
+                      </InputOTP>
+                    )}
+                  </div>
+                  <div className="mt-10 flex justify-center">
                     {useBackupCode ? (
                       <button
                         type="button"
@@ -226,7 +269,7 @@ export default function LoginPage() {
                         }}
                         className="underline text-sm text-[#e0528a] hover:opacity-80 cursor-pointer"
                       >
-                        TOTP Kodu
+                        TOTP Kodu ile giriş yap
                       </button>
                     ) : (
                       <button
@@ -238,26 +281,10 @@ export default function LoginPage() {
                         }}
                         className="underline text-sm text-[#e0528a] hover:opacity-80 cursor-pointer"
                       >
-                        Backup Kod
+                        Backup Kod ile giriş yap
                       </button>
                     )}
                   </div>
-                  <Input
-                    id={useBackupCode ? "backupCode" : "otp"}
-                    type="text"
-                    placeholder={useBackupCode ? "ABCD1234" : "123456"}
-                    value={useBackupCode ? backupCode : otp}
-                    onChange={(e) => {
-                      if (useBackupCode) {
-                        setBackupCode(e.target.value);
-                      } else {
-                        setOtp(e.target.value);
-                      }
-                    }}
-                    required
-                    maxLength={useBackupCode ? 8 : 6}
-                    className="border-[#FFCDE1] focus-[#CDFBFF]"
-                  />
                 </div>
                 <div className="space-y-2">
                   <Button

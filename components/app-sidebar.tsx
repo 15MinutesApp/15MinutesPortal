@@ -48,22 +48,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuButton
               size="lg"
               asChild
-              className="group-data-[collapsible=icon]:translate-x-1"
+              className="mt-3 mb-5 ml-1 overflow-visible group-data-[collapsible=icon]:translate-x-1"
             >
               <a href="/">
-                <div className="flex aspect-square size-12 items-center justify-center">
+                <div className="flex size-20 items-center justify-start group-data-[collapsible=icon]:size-8">
                   <Image
                     src="/logo.png"
                     alt="15 Minutes Logo"
-                    width={60}
-                    height={60}
+                    width={80}
+                    height={80}
+                    className="h-16 w-16 object-contain group-data-[collapsible=icon]:h-5 group-data-[collapsible=icon]:w-5"
                   />
                 </div>
-                <div className="grid flex-1 text-left text-md leading-tight">
+                <div className="-ml-3 text-left text-lg leading-tight group-data-[collapsible=icon]:hidden">
                   <span className="truncate font-semibold text-foreground">
-                    15 Minutes
-                  </span>
-                  <span className="truncate text-md text-muted-foreground">
                     Carpenter
                   </span>
                 </div>
@@ -78,7 +76,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             <SidebarMenuItem key={item.title}>
               <SidebarMenuButton
                 asChild
-                className="group-data-[collapsible=icon]:translate-x-1"
+                className="ml-3.5 group-data-[collapsible=icon]:translate-x-1"
               >
                 <a href={item.url}>
                   <item.icon className="size-5" />

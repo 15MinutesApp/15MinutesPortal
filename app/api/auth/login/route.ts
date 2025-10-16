@@ -5,9 +5,14 @@ export async function POST(request: NextRequest) {
     const { email, password } = await request.json();
 
     // Get client IP and User Agent
+    // Vercel'de gerçek client IP'yi almak için öncelik sırası:
+    // 1. x-real-ip (en güvenilir)
+    // 2. x-forwarded-for'un ilk IP'si (client IP)
+    // 3. x-vercel-forwarded-for (Vercel specific)
     const clientIp =
-      request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
       request.headers.get("x-real-ip") ||
+      request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+      request.headers.get("x-vercel-forwarded-for")?.split(",")[0].trim() ||
       "unknown";
 
     const userAgent = request.headers.get("user-agent") || "unknown";

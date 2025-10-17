@@ -5,18 +5,21 @@ export async function POST(request: NextRequest) {
   try {
     const { totpCode, challengeToken, email } = await request.json();
 
+    console.log("TOTP verification request received");
+
     // Get client IP and User Agent
-    // Vercel'de gerçek client IP'yi almak için öncelik sırası:
+    // Gerçek client IP'yi almak için öncelik sırası:
     // 1. x-real-ip (en güvenilir)
     // 2. x-forwarded-for'un ilk IP'si (client IP)
-    // 3. x-vercel-forwarded-for (Vercel specific)
     const clientIp =
       request.headers.get("x-real-ip") ||
       request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
-      request.headers.get("x-vercel-forwarded-for")?.split(",")[0].trim() ||
       "unknown";
 
     const userAgent = request.headers.get("user-agent") || "unknown";
+
+    console.log("Client IP:", clientIp);
+    console.log("User Agent:", userAgent);
 
     // Get challenge token from cookie if not provided in body
     const cookieStore = await cookies();
@@ -46,22 +49,37 @@ export async function POST(request: NextRequest) {
       },
     };
 
+    // Build headers object without empty strings
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "User-Agent": userAgent,
+      "X-Client-IP": clientIp,
+      "X-Client-User-Agent": userAgent,
+    };
+
+    const xForwardedFor = request.headers.get("x-forwarded-for");
+    if (xForwardedFor) {
+      headers["X-Forwarded-For"] = xForwardedFor;
+    }
+
+    const xRealIp = request.headers.get("x-real-ip");
+    if (xRealIp) {
+      headers["X-Real-IP"] = xRealIp;
+    }
+
+    console.log(
+      "Sending TOTP verification to GraphQL API with headers:",
+      headers
+    );
+
     // Forward request to GraphQL API
     const response = await fetch("https://api.15minutes.app/graphql", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": userAgent,
-        "X-Client-IP": clientIp,
-        "X-Client-User-Agent": userAgent,
-        "X-Forwarded-For": request.headers.get("x-forwarded-for") || "",
-        "X-Real-IP": request.headers.get("x-real-ip") || "",
-        "X-Vercel-IP-Country": request.headers.get("x-vercel-ip-country") || "",
-        "X-Vercel-IP-City": request.headers.get("x-vercel-ip-city") || "",
-        "X-Vercel-IP-Region": request.headers.get("x-vercel-ip-region") || "",
-      },
+      headers,
       body: JSON.stringify(graphqlQuery),
     });
+
+    console.log("GraphQL API response status:", response.status);
 
     const contentType = response.headers.get("content-type");
 

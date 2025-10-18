@@ -7,12 +7,16 @@ export async function POST(request: NextRequest) {
     console.log("Login request received for email:", email);
 
     // Get client IP and User Agent
-    // Production'da Vercel firewall katmanından sonra gerçek client IP'yi almak için:
-    // x-forwarded-for header'ının ilk IP'si gerçek client IP'sidir
-    const forwardedFor = request.headers.get("x-forwarded-for");
-    const clientIp = forwardedFor
-      ? forwardedFor.split(",")[0].trim()
-      : request.headers.get("x-real-ip") || "unknown";
+    // Production'da gerçek client IP'yi almak için:
+    // x-forwarded-for header'ının EN SOLDAKİ (ilk) IP'si her zaman gerçek client IP'sidir
+    // Format: "client-ip, proxy1-ip, proxy2-ip"
+    const xForwardedFor = request.headers.get("x-forwarded-for");
+    const xRealIp = request.headers.get("x-real-ip");
+
+    const clientIp =
+      (xForwardedFor ? xForwardedFor.split(",")[0].trim() : null) ||
+      xRealIp ||
+      "unknown";
 
     const userAgent = request.headers.get("user-agent") || "unknown";
 
@@ -47,12 +51,11 @@ export async function POST(request: NextRequest) {
     };
 
     // Add X-Forwarded-For if available
-    if (forwardedFor) {
-      headers["X-Forwarded-For"] = forwardedFor;
+    if (xForwardedFor) {
+      headers["X-Forwarded-For"] = xForwardedFor;
     }
 
     // Add X-Real-IP if available
-    const xRealIp = request.headers.get("x-real-ip");
     if (xRealIp) {
       headers["X-Real-IP"] = xRealIp;
     }

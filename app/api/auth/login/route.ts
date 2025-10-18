@@ -7,17 +7,22 @@ export async function POST(request: NextRequest) {
     console.log("Login request received for email:", email);
 
     // Get client IP and User Agent
-    // Gerçek client IP'yi almak için öncelik sırası:
-    // 1. x-real-ip (en güvenilir)
-    // 2. x-forwarded-for'un ilk IP'si (client IP)
-    const clientIp =
-      request.headers.get("x-real-ip") ||
-      request.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
-      "unknown";
+    // Production'da Vercel firewall katmanından sonra gerçek client IP'yi almak için:
+    // x-forwarded-for header'ının ilk IP'si gerçek client IP'sidir
+    const forwardedFor = request.headers.get("x-forwarded-for");
+    const clientIp = forwardedFor
+      ? forwardedFor.split(",")[0].trim()
+      : request.headers.get("x-real-ip") || "unknown";
 
     const userAgent = request.headers.get("user-agent") || "unknown";
 
+    // Get location info from Vercel
+    const country = request.headers.get("x-vercel-ip-country");
+    const city = request.headers.get("x-vercel-ip-city");
+    const region = request.headers.get("x-vercel-ip-region");
+
     console.log("Client IP:", clientIp);
+    console.log("Client Location:", { country, city, region });
     console.log("User Agent:", userAgent);
 
     // GraphQL mutation for password login
@@ -33,7 +38,7 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    // Build headers object without empty strings
+    // Build headers object - include client IP, location and user agent info
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "User-Agent": userAgent,
@@ -41,14 +46,26 @@ export async function POST(request: NextRequest) {
       "X-Client-User-Agent": userAgent,
     };
 
-    const xForwardedFor = request.headers.get("x-forwarded-for");
-    if (xForwardedFor) {
-      headers["X-Forwarded-For"] = xForwardedFor;
+    // Add X-Forwarded-For if available
+    if (forwardedFor) {
+      headers["X-Forwarded-For"] = forwardedFor;
     }
 
+    // Add X-Real-IP if available
     const xRealIp = request.headers.get("x-real-ip");
     if (xRealIp) {
       headers["X-Real-IP"] = xRealIp;
+    }
+
+    // Add Vercel location headers for client location tracking
+    if (country) {
+      headers["X-Vercel-IP-Country"] = country;
+    }
+    if (city) {
+      headers["X-Vercel-IP-City"] = city;
+    }
+    if (region) {
+      headers["X-Vercel-IP-Region"] = region;
     }
 
     console.log("Sending request to GraphQL API with headers:", headers);

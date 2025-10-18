@@ -42,7 +42,7 @@ const reportedUsers = [
     name: "Ayşe Kaya",
     email: "ayse@example.com",
     reportCount: 8,
-    reason: "Taciz ve rahatsız edici davranış.",
+    reason: "Rahatsız edici davranış.",
     status: "pending",
     date: "13 Ocak 2025",
   },

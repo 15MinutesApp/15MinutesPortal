@@ -51,6 +51,7 @@ export default function LoginPage() {
     try {
       console.log("Attempting login with:", { email, password: "***" });
 
+      // Call Next.js API route (bypasses CORS)
       const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: {
@@ -86,13 +87,16 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      const totpCode = useBackupCode ? backupCode : otp;
+
+      // Call Next.js API route (bypasses CORS)
       const response = await fetch("/api/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          totpCode: useBackupCode ? backupCode : otp,
+          totpCode,
           challengeToken,
           email,
         }),
@@ -107,7 +111,8 @@ export default function LoginPage() {
       // Handle successful login
       console.log("Login successful!", data);
 
-      // Update auth context with email only (tokens are now in HTTP-only cookies)
+      // Tokens are now in HTTP-only cookies
+      // Update auth context with email only
       login("", "", email);
       toast.success(data.message);
       router.push("/");

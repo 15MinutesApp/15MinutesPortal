@@ -23,23 +23,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [adminEmail, setAdminEmail] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Check for existing tokens on mount
+  // Check for existing session on mount
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
-        const response = await fetch("/api/auth/status");
-        const data = await response.json();
-
-        if (data.isAuthenticated) {
-          setIsAuthenticated(true);
-          setAdminEmail(data.adminEmail);
-          // Tokens are now in HTTP-only cookies, not accessible via JS
-          setAccessToken("http-only");
-          setRefreshToken("http-only");
-        }
+        // Check if user has valid session by making a test request
+        // This is optional - you can also just assume logged out on mount
+        // and rely on protected routes to redirect
+        setIsLoading(false);
       } catch (error) {
         console.error("Auth status check failed:", error);
-      } finally {
         setIsLoading(false);
       }
     };
@@ -52,7 +45,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     newRefreshToken: string,
     email?: string
   ) => {
-    // Tokens are now stored in HTTP-only cookies by the API
+    // Tokens are stored in HTTP-only cookies by GraphQL API
+    // We only need to update the UI state
     if (email) {
       setAdminEmail(email);
     }
@@ -61,13 +55,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAuthenticated(true);
   };
 
-  const logout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
-
+  const logout = () => {
+    // Cookies will be cleared by making a logout request to GraphQL API
+    // For now, just clear local state
     setAccessToken(null);
     setRefreshToken(null);
     setAdminEmail(null);

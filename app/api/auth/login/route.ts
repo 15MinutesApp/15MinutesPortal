@@ -1,30 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 
+/**
+ * API Route: /api/auth/login
+ * This route acts as a secure proxy to our main GraphQL API.
+ * 1. It receives login credentials (email, password) from the client.
+ * 2. It extracts the real user IP address from the 'x-forwarded-for' header provided by Vercel.
+ * 3. It forwards the request to the main GraphQL API, including the real IP in a custom 'X-Client-IP' header.
+ * 4. It returns the response from the GraphQL API back to the client.
+ */
 export async function POST(request: NextRequest) {
   try {
     const { email, password } = await request.json();
 
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: "Email and password are required." },
+        { status: 400 }
+      );
+    }
+
     console.log("Login request received for email:", email);
 
-    // Get client IP - Vercel'de en güvenilir yöntem
-    // Vercel automatically sets x-forwarded-for with the real client IP as the first value
+    // 1. Get the real client IP address.
+    // Vercel populates 'x-forwarded-for' with the real client IP as the first value.
     const forwardedFor = request.headers.get("x-forwarded-for");
-    const realClientIp = forwardedFor
+    const clientIp = forwardedFor
       ? forwardedFor.split(",")[0].trim()
       : "unknown";
 
     const userAgent = request.headers.get("user-agent") || "unknown";
 
-    // Get location info from Vercel (these are based on the real client IP)
-    const country = request.headers.get("x-vercel-ip-country") || "";
-    const city = request.headers.get("x-vercel-ip-city") || "";
-    const region = request.headers.get("x-vercel-ip-region") || "";
-
-    console.log("Real Client IP:", realClientIp);
-    console.log("Client Location:", { country, city, region });
+    console.log("Real Client IP:", clientIp);
     console.log("User Agent:", userAgent);
 
-    // GraphQL mutation for password login
+    // 2. Prepare the GraphQL mutation.
     const graphqlQuery = {
       query: `
         mutation StartPasswordLogin($email: String!, $password: String!) {
@@ -37,62 +46,39 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    // Build headers - Keep it simple, only send essential headers
+    // 3. Make the server-to-server request to the main GraphQL API.
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "User-Agent": userAgent,
-      "X-Forwarded-For": realClientIp,
+      // IMPORTANT: Forward the real IP in a custom, trusted header.
+      "X-Client-IP": clientIp,
     };
 
-    console.log("Sending request to GraphQL API with headers:", headers);
+    console.log("Sending request to GraphQL API with X-Client-IP:", clientIp);
 
-    // Forward request to GraphQL API
     const response = await fetch("https://api.15minutes.app/graphql", {
       method: "POST",
       headers,
       body: JSON.stringify(graphqlQuery),
     });
 
-    console.log("GraphQL API response status:", response.status);
-
-    const contentType = response.headers.get("content-type");
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("GraphQL API error:", {
-        status: response.status,
-        statusText: response.statusText,
-        contentType,
-        body: text,
-      });
-      return NextResponse.json(
-        { error: `Authentication failed: ${response.statusText}` },
-        { status: response.status }
-      );
-    }
-
-    if (!contentType?.includes("application/json")) {
-      const text = await response.text();
-      console.error("Non-JSON response from GraphQL API:", {
-        contentType,
-        body: text,
-      });
-      return NextResponse.json(
-        { error: "Invalid response from authentication server" },
-        { status: 502 }
-      );
-    }
-
     const data = await response.json();
 
-    if (data.errors) {
-      console.error("GraphQL errors:", data.errors);
+    console.log("GraphQL API response status:", response.status);
+
+    // 4. Proxy the response back to the client.
+    if (!response.ok || data.errors) {
+      console.error("GraphQL API Error:", data.errors);
       return NextResponse.json(
-        { error: data.errors[0]?.message || "Authentication failed" },
-        { status: 400 }
+        {
+          error: "An error occurred during login.",
+          details: data.errors,
+        },
+        { status: response.status || 400 }
       );
     }
 
+    // Return the challenge token for TOTP verification
     return NextResponse.json({
       message: "Email ve şifre doğrulandı. Lütfen TOTP kodunuzu girin.",
       challengeToken: data.data.Admin_startPasswordLogin,

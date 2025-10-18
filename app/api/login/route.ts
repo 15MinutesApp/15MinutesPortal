@@ -1,43 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
+/**
+ * API Route: /api/login
+ * This route acts as a secure proxy to our main GraphQL API for TOTP verification.
+ * 1. It receives TOTP code and challenge token from the client.
+ * 2. It extracts the real user IP address from the 'x-forwarded-for' header provided by Vercel.
+ * 3. It forwards the request to the main GraphQL API, including the real IP in a custom 'X-Client-IP' header.
+ * 4. It returns the authentication tokens back to the client as HTTP-only cookies.
+ */
 export async function POST(request: NextRequest) {
   try {
     const { totpCode, challengeToken, email } = await request.json();
-
-    console.log("TOTP verification request received");
-
-    // Get client IP - Vercel'de en güvenilir yöntem
-    // Vercel automatically sets x-forwarded-for with the real client IP as the first value
-    const forwardedFor = request.headers.get("x-forwarded-for");
-    const realClientIp = forwardedFor
-      ? forwardedFor.split(",")[0].trim()
-      : "unknown";
-
-    const userAgent = request.headers.get("user-agent") || "unknown";
-
-    // Get location info from Vercel (these are based on the real client IP)
-    const country = request.headers.get("x-vercel-ip-country") || "";
-    const city = request.headers.get("x-vercel-ip-city") || "";
-    const region = request.headers.get("x-vercel-ip-region") || "";
-
-    console.log("Real Client IP:", realClientIp);
-    console.log("Client Location:", { country, city, region });
-    console.log("User Agent:", userAgent);
 
     // Get challenge token from cookie if not provided in body
     const cookieStore = await cookies();
     const storedChallengeToken =
       challengeToken || cookieStore.get("challengeToken")?.value;
 
-    if (!storedChallengeToken) {
+    if (!storedChallengeToken || !totpCode) {
       return NextResponse.json(
-        { error: "Challenge token not found. Please start login again." },
+        { error: "Challenge token and TOTP code are required." },
         { status: 400 }
       );
     }
 
-    // GraphQL mutation for TOTP verification
+    console.log("TOTP verification request received");
+
+    // 1. Get the real client IP address.
+    // Vercel populates 'x-forwarded-for' with the real client IP as the first value.
+    const forwardedFor = request.headers.get("x-forwarded-for");
+    const clientIp = forwardedFor
+      ? forwardedFor.split(",")[0].trim()
+      : "unknown";
+
+    const userAgent = request.headers.get("user-agent") || "unknown";
+
+    console.log("Real Client IP:", clientIp);
+    console.log("User Agent:", userAgent);
+
+    // 2. Prepare the GraphQL mutation.
     const graphqlQuery = {
       query: `
         mutation VerifyTotp($challengeToken: String!, $totpCode: String!) {
@@ -53,62 +55,38 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    // Build headers - Keep it simple, only send essential headers
+    // 3. Make the server-to-server request to the main GraphQL API.
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "User-Agent": userAgent,
-      "X-Forwarded-For": realClientIp,
+      // IMPORTANT: Forward the real IP in a custom, trusted header.
+      "X-Client-IP": clientIp,
     };
 
     console.log(
-      "Sending TOTP verification to GraphQL API with headers:",
-      headers
+      "Sending TOTP verification to GraphQL API with X-Client-IP:",
+      clientIp
     );
 
-    // Forward request to GraphQL API
     const response = await fetch("https://api.15minutes.app/graphql", {
       method: "POST",
       headers,
       body: JSON.stringify(graphqlQuery),
     });
 
-    console.log("GraphQL API response status:", response.status);
-
-    const contentType = response.headers.get("content-type");
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("GraphQL API error:", {
-        status: response.status,
-        statusText: response.statusText,
-        contentType,
-        body: text,
-      });
-      return NextResponse.json(
-        { error: `Verification failed: ${response.statusText}` },
-        { status: response.status }
-      );
-    }
-
-    if (!contentType?.includes("application/json")) {
-      const text = await response.text();
-      console.error("Non-JSON response from GraphQL API:", {
-        contentType,
-        body: text,
-      });
-      return NextResponse.json(
-        { error: "Invalid response from authentication server" },
-        { status: 502 }
-      );
-    }
-
     const data = await response.json();
 
-    if (data.errors) {
-      console.error("GraphQL errors:", data.errors);
+    console.log("GraphQL API response status:", response.status);
+
+    // 4. Proxy the response back to the client.
+    if (!response.ok || data.errors) {
+      console.error("GraphQL API Error:", data.errors);
       return NextResponse.json(
-        { error: data.errors[0]?.message || "Verification failed" },
-        { status: 400 }
+        {
+          error: "An error occurred during TOTP verification.",
+          details: data.errors,
+        },
+        { status: response.status || 400 }
       );
     }
 

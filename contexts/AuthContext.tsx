@@ -25,11 +25,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Check for existing session on mount
   useEffect(() => {
-    const checkAuthStatus = async () => {
+    const checkAuthStatus = () => {
       try {
-        // Check if user has valid session by making a test request
-        // This is optional - you can also just assume logged out on mount
-        // and rely on protected routes to redirect
+        // Tokens are in HTTP-only cookies, JavaScript can't access them
+        // We just set loading to false
+        // Protected routes will handle authentication checks
         setIsLoading(false);
       } catch (error) {
         console.error("Auth status check failed:", error);
@@ -45,8 +45,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     newRefreshToken: string,
     email?: string
   ) => {
-    // Tokens are stored in HTTP-only cookies by GraphQL API
-    // We only need to update the UI state
+    // Tokens are stored in HTTP-only cookies by backend
+    // We only need to update UI state
     if (email) {
       setAdminEmail(email);
     }
@@ -56,8 +56,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
-    // Cookies will be cleared by making a logout request to GraphQL API
-    // For now, just clear local state
+    // Clear local state
+    // Backend should clear cookies on logout endpoint call
     setAccessToken(null);
     setRefreshToken(null);
     setAdminEmail(null);

@@ -51,25 +51,33 @@ export default function LoginPage() {
     try {
       console.log("Attempting login with:", { email, password: "***" });
 
-      // Call Next.js API route (bypasses CORS)
-      const response = await fetch("/api/auth/login", {
+      // Call via Next.js rewrite proxy (bypasses CORS)
+      const response = await fetch("/graphql", {
         method: "POST",
+        credentials: "include", // Important: allows cookies to be sent and received
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          query: `
+            mutation StartPasswordLogin($email: String!, $password: String!) {
+              Admin_startPasswordLogin(email: $email, password: $password)
+            }
+          `,
+          variables: { email, password },
+        }),
       });
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || "Login failed");
+      if (!response.ok || data.errors) {
+        throw new Error(data.errors?.[0]?.message || "Login failed");
       }
 
       console.log("Login successful, challenge token received");
-      setChallengeToken(data.challengeToken);
+      setChallengeToken(data.data.Admin_startPasswordLogin);
       setStep(2);
-      toast.success(data.message);
+      toast.success("Email ve şifre doğrulandı. Lütfen TOTP kodunuzu girin.");
     } catch (error) {
       console.error("Login error details:", error);
       toast.error(
@@ -89,32 +97,39 @@ export default function LoginPage() {
     try {
       const totpCode = useBackupCode ? backupCode : otp;
 
-      // Call Next.js API route (bypasses CORS)
-      const response = await fetch("/api/login", {
+      // Call via Next.js rewrite proxy (bypasses CORS)
+      const response = await fetch("/graphql", {
         method: "POST",
+        credentials: "include", // Important: allows cookies to be sent and received
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          totpCode,
-          challengeToken,
-          email,
+          query: `
+            mutation VerifyTotp($challengeToken: String!, $totpCode: String!) {
+              Admin_verifyTotp(challengeToken: $challengeToken, totpCode: $totpCode) {
+                accessToken
+                refreshToken
+              }
+            }
+          `,
+          variables: { challengeToken, totpCode },
         }),
       });
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || "Login failed");
+      if (!response.ok || data.errors) {
+        throw new Error(data.errors?.[0]?.message || "Verification failed");
       }
 
       // Handle successful login
       console.log("Login successful!", data);
 
-      // Tokens are now in HTTP-only cookies
+      // Tokens are now in HTTP-only cookies set by backend
       // Update auth context with email only
       login("", "", email);
-      toast.success(data.message);
+      toast.success("Giriş başarılı! Yönlendiriliyorsunuz...");
       router.push("/");
     } catch (error) {
       console.error("Login error:", error);

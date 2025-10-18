@@ -7,26 +7,21 @@ export async function POST(request: NextRequest) {
 
     console.log("TOTP verification request received");
 
-    // Get client IP and User Agent
-    // Production'da gerçek client IP'yi almak için:
-    // x-forwarded-for header'ının EN SOLDAKİ (ilk) IP'si her zaman gerçek client IP'sidir
-    // Format: "client-ip, proxy1-ip, proxy2-ip"
-    const xForwardedFor = request.headers.get("x-forwarded-for");
-    const xRealIp = request.headers.get("x-real-ip");
-
-    const clientIp =
-      (xForwardedFor ? xForwardedFor.split(",")[0].trim() : null) ||
-      xRealIp ||
-      "unknown";
+    // Get client IP - Vercel'de en güvenilir yöntem
+    // Vercel automatically sets x-forwarded-for with the real client IP as the first value
+    const forwardedFor = request.headers.get("x-forwarded-for");
+    const realClientIp = forwardedFor
+      ? forwardedFor.split(",")[0].trim()
+      : "unknown";
 
     const userAgent = request.headers.get("user-agent") || "unknown";
 
-    // Get location info from Vercel
-    const country = request.headers.get("x-vercel-ip-country");
-    const city = request.headers.get("x-vercel-ip-city");
-    const region = request.headers.get("x-vercel-ip-region");
+    // Get location info from Vercel (these are based on the real client IP)
+    const country = request.headers.get("x-vercel-ip-country") || "";
+    const city = request.headers.get("x-vercel-ip-city") || "";
+    const region = request.headers.get("x-vercel-ip-region") || "";
 
-    console.log("Client IP:", clientIp);
+    console.log("Real Client IP:", realClientIp);
     console.log("Client Location:", { country, city, region });
     console.log("User Agent:", userAgent);
 
@@ -58,25 +53,18 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    // Build headers object - include client IP, location and user agent info
+    // Build headers - send only the real client IP and location data
+    // DO NOT forward the original headers as they contain proxy IPs
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "User-Agent": userAgent,
-      "X-Client-IP": clientIp,
+      "X-Client-IP": realClientIp,
+      "X-Forwarded-For": realClientIp, // Send only real client IP, not the proxy chain
+      "X-Real-IP": realClientIp, // Send only real client IP
       "X-Client-User-Agent": userAgent,
     };
 
-    // Add X-Forwarded-For if available
-    if (xForwardedFor) {
-      headers["X-Forwarded-For"] = xForwardedFor;
-    }
-
-    // Add X-Real-IP if available
-    if (xRealIp) {
-      headers["X-Real-IP"] = xRealIp;
-    }
-
-    // Add Vercel location headers for client location tracking
+    // Add Vercel location headers
     if (country) {
       headers["X-Vercel-IP-Country"] = country;
     }

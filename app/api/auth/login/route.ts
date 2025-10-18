@@ -37,27 +37,12 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    // Build headers - Send ONLY the real client IP without proxy chain
-    // Backend parses these headers, so we must send clean values
+    // Build headers - Keep it simple, only send essential headers
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "User-Agent": userAgent,
-      "X-Real-IP": realClientIp,
       "X-Forwarded-For": realClientIp,
-      "CF-Connecting-IP": realClientIp,
-      "True-Client-IP": realClientIp,
     };
-
-    // Add location info as custom headers
-    if (country) {
-      headers["X-Client-Country"] = country;
-    }
-    if (city) {
-      headers["X-Client-City"] = city;
-    }
-    if (region) {
-      headers["X-Client-Region"] = region;
-    }
 
     console.log("Sending request to GraphQL API with headers:", headers);
 

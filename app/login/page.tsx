@@ -51,8 +51,8 @@ export default function LoginPage() {
     try {
       console.log("Attempting login with:", { email, password: "***" });
 
-      // Call via Next.js rewrite proxy (bypasses CORS)
-      const response = await fetch("/graphql", {
+      // Direct GraphQL API call with credentials for HTTP-only cookies
+      const response = await fetch("/api/graphql", {
         method: "POST",
         credentials: "include", // Important: allows cookies to be sent and received
         headers: {
@@ -97,8 +97,8 @@ export default function LoginPage() {
     try {
       const totpCode = useBackupCode ? backupCode : otp;
 
-      // Call via Next.js rewrite proxy (bypasses CORS)
-      const response = await fetch("/graphql", {
+      // Direct GraphQL API call with credentials for HTTP-only cookies
+      const response = await fetch("/api/graphql", {
         method: "POST",
         credentials: "include", // Important: allows cookies to be sent and received
         headers: {

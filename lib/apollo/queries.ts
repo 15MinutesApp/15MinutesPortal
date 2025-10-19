@@ -32,6 +32,16 @@ export const ADMIN_VERIFY_BACKUP_CODE = gql`
 `;
 
 // Admin Queries
+export const ADMIN_ME = gql`
+  query AdminMe {
+    Admin_me {
+      id
+      email
+      createdAt
+    }
+  }
+`;
+
 export const ADMIN_USERS = gql`
   query AdminUsers($page: Int!, $limit: Int!) {
     Admin_users(page: $page, limit: $limit) {

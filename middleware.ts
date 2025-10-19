@@ -12,9 +12,22 @@ export function middleware(request: NextRequest) {
     pathname.startsWith(route)
   );
 
-  // For now, we'll skip middleware auth check since we're using client-side auth
-  // You can enhance this later with httpOnly cookies for better security
+  // Public route ise direkt geç
+  if (isPublicRoute) {
+    return NextResponse.next();
+  }
 
+  // Protected route için HTTP-only cookie kontrolü yap
+  const accessToken = request.cookies.get("accessToken");
+  const refreshToken = request.cookies.get("refreshToken");
+
+  // Token yoksa login'e yönlendir
+  if (!accessToken && !refreshToken) {
+    const loginUrl = new URL("/login", request.url);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // Token varsa devam et
   return NextResponse.next();
 }
 

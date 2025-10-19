@@ -119,6 +119,10 @@ export default function LoginPage() {
 
       const data = await response.json();
 
+      console.log("TOTP verification response status:", response.status);
+      console.log("TOTP verification response headers:", response.headers);
+      console.log("TOTP verification response data:", data);
+
       if (!response.ok || data.errors) {
         throw new Error(data.errors?.[0]?.message || "Verification failed");
       }
@@ -126,11 +130,16 @@ export default function LoginPage() {
       // Handle successful login
       console.log("Login successful!", data);
 
+      // Cookie'leri kontrol et
+      console.log("All cookies after login:", document.cookie);
+
       // Tokens are now in HTTP-only cookies set by backend
       // Update auth context with email only
       login("", "", email);
       toast.success("Giriş başarılı! Yönlendiriliyorsunuz...");
-      router.push("/");
+
+      // Full page reload to ensure cookies are properly set and AuthContext refreshes
+      window.location.href = "/";
     } catch (error) {
       console.error("Login error:", error);
       toast.error(

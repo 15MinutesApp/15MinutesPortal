@@ -2,7 +2,6 @@
 
 import type React from "react";
 import { createContext, useContext, useState, useEffect } from "react";
-import { tokenStorage } from "@/lib/auth/authService";
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -25,14 +24,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Check for existing session on mount
   useEffect(() => {
-    const checkAuthStatus = () => {
+    const checkAuthStatus = async () => {
       try {
-        // Tokens are in HTTP-only cookies, JavaScript can't access them
-        // We just set loading to false
-        // Protected routes will handle authentication checks
-        setIsLoading(false);
+        // HTTP-only cookie'leri server-side kontrol et
+        const response = await fetch("/api/auth/verify", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.authenticated) {
+          // Kullanıcı authenticated, state'i güncelle
+          setIsAuthenticated(true);
+          setAccessToken("http-only");
+          setRefreshToken("http-only");
+          if (data.data?.email) {
+            setAdminEmail(data.data.email);
+          }
+        } else {
+          // Kullanıcı authenticated değil
+          setIsAuthenticated(false);
+          setAccessToken(null);
+          setRefreshToken(null);
+          setAdminEmail(null);
+        }
       } catch (error) {
         console.error("Auth status check failed:", error);
+        setIsAuthenticated(false);
+        setAccessToken(null);
+        setRefreshToken(null);
+        setAdminEmail(null);
+      } finally {
         setIsLoading(false);
       }
     };

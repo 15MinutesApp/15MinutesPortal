@@ -78,13 +78,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAuthenticated(true);
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      // Logout endpoint'ini çağır ve HTTP-only cookie'leri sil
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (error) {
+      console.error("Logout request failed:", error);
+    }
+
     // Clear local state
-    // Backend should clear cookies on logout endpoint call
     setAccessToken(null);
     setRefreshToken(null);
     setAdminEmail(null);
     setIsAuthenticated(false);
+
+    // Login sayfasına yönlendir
+    window.location.href = "/login";
   };
 
   return (

@@ -7,9 +7,9 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
-import { InterestsDataTable } from "./data-table";
-import { columns } from "./columns";
+import { InterestsAccordion } from "./interests-accordion";
 import { interestsData } from "./data";
+import { Toaster } from "@/components/ui/toaster";
 
 export default function InterestsPage() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -37,23 +37,26 @@ export default function InterestsPage() {
     <SidebarProvider className="dark">
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 bg-card">
-          <div className="flex items-center gap-2 px-4">
+        <header className="flex h-16 shrink-0 items-center gap-2 bg-card px-4">
+          <div className="flex items-center gap-2">
             <SidebarTrigger className="-ml-1 text-foreground" />
             <Separator orientation="vertical" className="mr-2 h-4" />
-            <h1 className="text-xl font-bold text-foreground">İlgi Alanları</h1>
+            <h1 className="text-2xl font-bold text-foreground">
+              İlgi Alanları
+            </h1>
           </div>
         </header>
-        <div className="flex flex-1 flex-col gap-6 p-6">
+        <div className=" flex flex-1 flex-col gap-6 mr-10 ml-16">
           <div className="space-y-2">
             <p className="text-muted-foreground">
               Kullanıcıların ilgi alanlarını kategoriler ve alt kategoriler
-              halinde yönetin
+              halinde yönetin.
             </p>
           </div>
-          <InterestsDataTable columns={columns} data={interestsData} />
+          <InterestsAccordion data={interestsData} />
         </div>
       </SidebarInset>
+      <Toaster />
     </SidebarProvider>
   );
 }

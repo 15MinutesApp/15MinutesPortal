@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
   DialogContent,
@@ -24,9 +25,78 @@ import { Plus, Upload } from "lucide-react";
 
 export function AddInterestDialog() {
   const [open, setOpen] = useState(false);
-  const [interestType, setInterestType] = useState<"category" | "subcategory">(
-    "category"
-  );
+  const [isSubCategory, setIsSubCategory] = useState(false);
+  const [formData, setFormData] = useState({
+    nameTr: "",
+    nameEn: "",
+    thumbnail: "",
+    icon: "",
+    color: "",
+    parentCategoryId: "",
+  });
+  const [isLoading, setIsLoading] = useState(false);
+
+  const { toast } = useToast();
+
+  // Mock categories - sonra backenden gelecek
+  const categories = [
+    { id: "gaming", name: "Oyunlar" },
+    { id: "music", name: "Müzik" },
+    { id: "sports", name: "Spor" },
+  ];
+
+  const resetForm = () => {
+    setFormData({
+      nameTr: "",
+      nameEn: "",
+      thumbnail: "",
+      icon: "",
+      color: "",
+      parentCategoryId: "",
+    });
+    setIsSubCategory(false);
+  };
+
+  const handleSubmit = async () => {
+    if (!formData.nameTr || !formData.nameEn) {
+      toast({
+        title: "Hata",
+        description: "Lütfen tüm zorunlu alanları doldurun",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isSubCategory && !formData.parentCategoryId) {
+      toast({
+        title: "Hata",
+        description: "Lütfen ana kategori seçin",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    // Simüle edilmiş API çağrısı - sonra backend'e bağlanacak
+    setTimeout(() => {
+      console.log("Form Data:", {
+        isSubCategory,
+        ...formData,
+      });
+
+      toast({
+        title: "Başarılı",
+        description: isSubCategory
+          ? "Alt kategori oluşturuldu (Mock)"
+          : "Ana kategori oluşturuldu (Mock)",
+      });
+
+      setIsLoading(false);
+      setOpen(false);
+      resetForm();
+    }, 1000);
+  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -45,34 +115,53 @@ export function AddInterestDialog() {
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="type">Tür</Label>
-            <Select
-              value={interestType}
-              onValueChange={(value: "category" | "subcategory") =>
-                setInterestType(value)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Tür seçin" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="category">Ana Kategori</SelectItem>
-                <SelectItem value="subcategory">Alt Kategori</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label className="text-sm font-medium">Kategori Türü</Label>
+            <div className="inline-flex rounded-lg border border-pink-500/30 bg-muted p-1">
+              <Button
+                type="button"
+                variant={!isSubCategory ? "default" : "ghost"}
+                className={`flex-1 ${
+                  !isSubCategory
+                    ? "bg-gradient-to-r from-pink-500 to-blue-400 text-white hover:from-pink-600 hover:to-blue-500"
+                    : "hover:bg-transparent"
+                }`}
+                onClick={() => setIsSubCategory(false)}
+              >
+                Ana Kategori
+              </Button>
+              <Button
+                type="button"
+                variant={isSubCategory ? "default" : "ghost"}
+                className={`flex-1 ${
+                  isSubCategory
+                    ? "bg-gradient-to-r from-pink-500 to-blue-400 text-white hover:from-pink-600 hover:to-blue-500"
+                    : "hover:bg-transparent"
+                }`}
+                onClick={() => setIsSubCategory(true)}
+              >
+                Alt Kategori
+              </Button>
+            </div>
           </div>
 
-          {interestType === "subcategory" && (
+          {isSubCategory && (
             <div className="grid gap-2">
               <Label htmlFor="parent">Ana Kategori</Label>
-              <Select>
+              <Select
+                value={formData.parentCategoryId}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, parentCategoryId: value })
+                }
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Ana kategori seçin" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="gaming">Oyun</SelectItem>
-                  <SelectItem value="music">Müzik</SelectItem>
-                  <SelectItem value="sports">Spor</SelectItem>
+                  {categories.map((category: any) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -80,24 +169,68 @@ export function AddInterestDialog() {
 
           <div className="grid gap-2">
             <Label htmlFor="name-tr">Türkçe İsim</Label>
-            <Input id="name-tr" placeholder="Örn: Oyun, Spor..." />
+            <Input
+              id="name-tr"
+              placeholder="Örn: Oyun, Spor..."
+              value={formData.nameTr}
+              onChange={(e) =>
+                setFormData({ ...formData, nameTr: e.target.value })
+              }
+            />
           </div>
 
           <div className="grid gap-2">
             <Label htmlFor="name-en">İngilizce İsim</Label>
-            <Input id="name-en" placeholder="Örn: Gaming, Sports..." />
+            <Input
+              id="name-en"
+              placeholder="Örn: Gaming, Sports..."
+              value={formData.nameEn}
+              onChange={(e) =>
+                setFormData({ ...formData, nameEn: e.target.value })
+              }
+            />
           </div>
 
-          {interestType === "category" && (
+          <div className="grid gap-2">
+            <Label htmlFor="logo">Thumbnail URL</Label>
+            <div className="flex gap-2">
+              <Input
+                id="logo"
+                placeholder="https://example.com/logo.png"
+                value={formData.thumbnail}
+                onChange={(e) =>
+                  setFormData({ ...formData, thumbnail: e.target.value })
+                }
+              />
+              <Button type="button" variant="outline" size="icon">
+                <Upload className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {!isSubCategory && (
             <>
               <div className="grid gap-2">
                 <Label htmlFor="icon">İkon (Emoji)</Label>
-                <Input id="icon" placeholder="🕹️" maxLength={2} />
+                <Input
+                  id="icon"
+                  placeholder="🕹️"
+                  maxLength={2}
+                  value={formData.icon}
+                  onChange={(e) =>
+                    setFormData({ ...formData, icon: e.target.value })
+                  }
+                />
               </div>
 
               <div className="grid gap-2">
                 <Label htmlFor="color">Renk</Label>
-                <Select>
+                <Select
+                  value={formData.color}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, color: value })
+                  }
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Renk seçin" />
                   </SelectTrigger>
@@ -112,31 +245,19 @@ export function AddInterestDialog() {
               </div>
             </>
           )}
-
-          {interestType === "subcategory" && (
-            <div className="grid gap-2">
-              <Label htmlFor="logo">Logo URL</Label>
-              <div className="flex gap-2">
-                <Input id="logo" placeholder="https://example.com/logo.png" />
-                <Button type="button" variant="outline" size="icon">
-                  <Upload className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            İptal
-          </Button>
           <Button
-            type="submit"
+            variant="outline"
             onClick={() => {
-              // Handle submit
               setOpen(false);
+              resetForm();
             }}
           >
-            Kaydet
+            İptal
+          </Button>
+          <Button type="submit" onClick={handleSubmit} disabled={isLoading}>
+            {isLoading ? "Kaydediliyor..." : "Kaydet"}
           </Button>
         </DialogFooter>
       </DialogContent>

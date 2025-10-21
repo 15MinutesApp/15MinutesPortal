@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -20,12 +20,16 @@ import { SubInterest, Interest } from "./types";
 interface AddSubInterestDialogProps {
   parentInterest: Interest;
   onAdd?: (subInterest: SubInterest) => void;
+  onUpdate?: (subInterest: SubInterest) => void;
+  editSubInterest?: SubInterest;
   trigger?: React.ReactNode;
 }
 
 export function AddSubInterestDialog({
   parentInterest,
   onAdd,
+  onUpdate,
+  editSubInterest,
   trigger,
 }: AddSubInterestDialogProps) {
   const [open, setOpen] = useState(false);
@@ -38,6 +42,25 @@ export function AddSubInterestDialog({
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Edit mode için form data'yı doldur
+  React.useEffect(() => {
+    if (editSubInterest && open) {
+      setFormData({
+        nameTr: editSubInterest.name,
+        nameEn: editSubInterest.nameEn,
+        logo: editSubInterest.logo || "",
+        userCount: editSubInterest.userCount,
+      });
+    } else if (!editSubInterest && open) {
+      setFormData({
+        nameTr: "",
+        nameEn: "",
+        logo: "",
+        userCount: 0,
+      });
+    }
+  }, [editSubInterest, open]);
 
   const handleInputChange = (field: string, value: string | number) => {
     setFormData((prev) => ({
@@ -73,22 +96,45 @@ export function AddSubInterestDialog({
     setIsLoading(true);
 
     try {
-      const newSubInterest: SubInterest = {
-        id: `sub-${Date.now()}`,
-        name: formData.nameTr.trim(),
-        nameEn: formData.nameEn.trim(),
-        logo: formData.logo || undefined,
-        userCount: formData.userCount || 0,
-      };
+      if (editSubInterest) {
+        // Edit mode
+        const updatedSubInterest: SubInterest = {
+          ...editSubInterest,
+          name: formData.nameTr.trim(),
+          nameEn: formData.nameEn.trim(),
+          logo: formData.logo || undefined,
+          userCount: formData.userCount || 0,
+        };
 
-      if (onAdd) {
-        onAdd(newSubInterest);
+        if (onUpdate) {
+          onUpdate(updatedSubInterest);
+        }
+
+        toast({
+          title: "Başarılı",
+          description: "Alt kategori başarıyla güncellendi.",
+          variant: "success",
+        });
+      } else {
+        // Add mode
+        const newSubInterest: SubInterest = {
+          id: `sub-${Date.now()}`,
+          name: formData.nameTr.trim(),
+          nameEn: formData.nameEn.trim(),
+          logo: formData.logo || undefined,
+          userCount: formData.userCount || 0,
+        };
+
+        if (onAdd) {
+          onAdd(newSubInterest);
+        }
+
+        toast({
+          title: "Başarılı",
+          description: "Alt kategori başarıyla eklendi.",
+          variant: "success",
+        });
       }
-
-      toast({
-        title: "Başarılı",
-        description: "Alt kategori başarıyla eklendi.",
-      });
 
       setFormData({
         nameTr: "",
@@ -109,86 +155,74 @@ export function AddSubInterestDialog({
   };
 
   const resetForm = () => {
-    setFormData({
-      nameTr: "",
-      nameEn: "",
-      logo: "",
-      userCount: 0,
-    });
+    if (!editSubInterest) {
+      setFormData({
+        nameTr: "",
+        nameEn: "",
+        logo: "",
+        userCount: 0,
+      });
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        {trigger || (
+        {trigger ? (
+          <div onClick={(e) => e.stopPropagation()}>{trigger}</div>
+        ) : (
           <Button
             variant="outline"
             size="sm"
             className="bg-gradient-to-r from-pink-500/10 to-blue-400/10 border-pink-500/30 hover:from-pink-500/20 hover:to-blue-400/20"
+            onClick={(e) => e.stopPropagation()}
           >
             <Plus className="h-4 w-4 mr-2" />
             Alt Kategori Ekle
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px] bg-gradient-to-br from-pink-500/5 to-blue-400/5 border-pink-500/20">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle className="text-foreground">
-            Alt Kategori Ekle - {parentInterest.name}
+          <DialogTitle>
+            {editSubInterest ? "Alt Kategori Düzenle" : "Alt Kategori Ekle"} -{" "}
+            {parentInterest.name}
           </DialogTitle>
           <DialogDescription>
-            {parentInterest.name} kategorisi için yeni bir alt kategori
-            oluşturun.
+            {editSubInterest
+              ? `${parentInterest.name} kategorisindeki alt kategoriyi düzenleyin`
+              : `${parentInterest.name} kategorisi için yeni bir alt kategori oluşturun`}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="nameTr" className="text-foreground">
-              Türkçe İsim *
-            </Label>
+        <form onSubmit={handleSubmit} className="grid gap-4 py-4">
+          <div className="grid gap-2">
+            <Label htmlFor="nameTr">Türkçe İsim</Label>
             <Input
               id="nameTr"
               value={formData.nameTr}
               onChange={(e) => handleInputChange("nameTr", e.target.value)}
-              placeholder="Alt kategori Türkçe ismi"
-              className="border-pink-500/30 focus-visible:ring-pink-500/50"
+              onClick={(e) => e.stopPropagation()}
+              placeholder="League of Legends, Futbol..."
+              className="placeholder:text-muted-foreground/40"
               required
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="nameEn" className="text-foreground">
-              İngilizce İsim *
-            </Label>
+          <div className="grid gap-2">
+            <Label htmlFor="nameEn">İngilizce İsim</Label>
             <Input
               id="nameEn"
               value={formData.nameEn}
               onChange={(e) => handleInputChange("nameEn", e.target.value)}
-              placeholder="Alt kategori İngilizce ismi"
-              className="border-pink-500/30 focus-visible:ring-pink-500/50"
+              onClick={(e) => e.stopPropagation()}
+              placeholder="League of Legends, Soccer..."
+              className="placeholder:text-muted-foreground/40"
               required
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="userCount" className="text-foreground">
-              Kullanıcı Sayısı
-            </Label>
-            <Input
-              id="userCount"
-              type="number"
-              value={formData.userCount}
-              onChange={(e) =>
-                handleInputChange("userCount", parseInt(e.target.value) || 0)
-              }
-              placeholder="0"
-              className="border-pink-500/30 focus-visible:ring-pink-500/50"
-              min="0"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-foreground">Logo/Thumbnail</Label>
+          <div className="grid gap-2">
+            <Label>Thumbnail</Label>
             <div className="flex items-center gap-4">
               <div className="flex-1">
                 <Input
@@ -196,16 +230,20 @@ export function AddSubInterestDialog({
                   type="file"
                   accept="image/*"
                   onChange={handleFileUpload}
+                  onClick={(e) => e.stopPropagation()}
                   className="hidden"
                 />
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-full border-pink-500/30 hover:bg-pink-500/10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    fileInputRef.current?.click();
+                  }}
+                  className="w-full bg-[#FFCDE1] hover:bg-[#CDFBFF] text-[#1C1C1C] hover:text-[#1C1C1C] cursor-pointer"
                 >
-                  <Upload className="h-4 w-4 mr-2" />
-                  Logo Yükle
+                  <Upload className="h-4 w-4 mr-2 text-[#1C1C1C] hover:text-[#1C1C1C]" />
+                  Thumbnail Yükle
                 </Button>
               </div>
               {formData.logo && (
@@ -219,35 +257,26 @@ export function AddSubInterestDialog({
               )}
             </div>
           </div>
-
-          <DialogFooter className="gap-2">
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 resetForm();
                 setOpen(false);
               }}
-              className="border-pink-500/30 hover:bg-pink-500/10"
             >
               İptal
             </Button>
-            <Button
-              type="submit"
-              disabled={isLoading}
-              className="bg-gradient-to-r from-pink-500 to-blue-400 hover:from-pink-600 hover:to-blue-500 text-white"
-            >
-              {isLoading ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Ekleniyor...
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Alt Kategori Ekle
-                </div>
-              )}
+            <Button type="submit" disabled={isLoading}>
+              {isLoading
+                ? editSubInterest
+                  ? "Güncelleniyor..."
+                  : "Ekleniyor..."
+                : editSubInterest
+                ? "Alt Kategori Güncelle"
+                : "Alt Kategori Ekle"}
             </Button>
           </DialogFooter>
         </form>

@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { InterestsAccordion } from "./interests-accordion";
 import { interestsData } from "./data";
 import { Toaster } from "@/components/ui/toaster";
-import { Interest } from "./types";
+import { Interest, SubInterest } from "./types";
 
 export default function InterestsPage() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -52,6 +52,27 @@ export default function InterestsPage() {
           return {
             ...interest,
             subInterests: [...interest.subInterests, subInterest],
+          };
+        }
+        return interest;
+      });
+      localStorage.setItem("interests", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleUpdateSubInterest = (
+    parentId: string,
+    updatedSubInterest: SubInterest
+  ) => {
+    setInterests((prev) => {
+      const updated = prev.map((interest) => {
+        if (interest.id === parentId) {
+          return {
+            ...interest,
+            subInterests: interest.subInterests.map((sub) =>
+              sub.id === updatedSubInterest.id ? updatedSubInterest : sub
+            ),
           };
         }
         return interest;
@@ -104,6 +125,7 @@ export default function InterestsPage() {
             onAdd={handleAddInterest}
             onUpdate={handleUpdateInterest}
             onAddSubInterest={handleAddSubInterest}
+            onUpdateSubInterest={handleUpdateSubInterest}
           />
         </div>
       </SidebarInset>

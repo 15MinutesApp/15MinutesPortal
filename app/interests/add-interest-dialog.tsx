@@ -51,7 +51,7 @@ export function AddInterestDialog({
   const { toast } = useToast();
 
   useEffect(() => {
-    if (editInterest) {
+    if (editInterest && open) {
       setFormData({
         nameTr: editInterest.name,
         nameEn: editInterest.nameEn,
@@ -59,24 +59,38 @@ export function AddInterestDialog({
         icon: editInterest.icon,
         color: editInterest.color,
       });
+    } else if (!editInterest && open) {
+      setFormData({
+        nameTr: "",
+        nameEn: "",
+        thumbnail: "",
+        icon: "",
+        color: "",
+      });
     }
-  }, [editInterest]);
+  }, [editInterest, open]);
 
   const resetForm = () => {
-    setFormData({
-      nameTr: "",
-      nameEn: "",
-      thumbnail: "",
-      icon: "",
-      color: "",
-    });
+    if (!editInterest) {
+      setFormData({
+        nameTr: "",
+        nameEn: "",
+        thumbnail: "",
+        icon: "",
+        color: "",
+      });
+    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // TODO: Dosyayı backend'e yükle ve URL al
-      setFormData({ ...formData, thumbnail: file.name });
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setFormData({ ...formData, thumbnail: result });
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -88,12 +102,7 @@ export function AddInterestDialog({
     if (!formData.nameTr || !formData.nameEn) {
       toast({
         title: "Hata",
-        description: (
-          <div className="flex items-center gap-2">
-            <XCircle className="h-4 w-4" />
-            <span>Lütfen tüm zorunlu alanları doldurun</span>
-          </div>
-        ),
+        description: "Lütfen tüm zorunlu alanları doldurun",
         variant: "destructive",
       });
       return;
@@ -120,13 +129,8 @@ export function AddInterestDialog({
 
         toast({
           title: "Başarılı",
-          description: (
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-              <span>"{formData.nameTr}" kategorisi başarıyla güncellendi</span>
-            </div>
-          ),
-          className: "border-green-500/50 bg-green-500/10",
+          description: `"${formData.nameTr}" kategorisi başarıyla güncellendi`,
+          variant: "success",
         });
       } else {
         // Add mode
@@ -145,13 +149,8 @@ export function AddInterestDialog({
 
         toast({
           title: "Başarılı",
-          description: (
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-green-500" />
-              <span>"{formData.nameTr}" kategorisi başarıyla eklendi</span>
-            </div>
-          ),
-          className: "border-green-500/50 bg-green-500/10",
+          description: `"${formData.nameTr}" kategorisi başarıyla eklendi`,
+          variant: "success",
         });
       }
 
@@ -183,8 +182,8 @@ export function AddInterestDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="name-tr">İsim</Label>
+          <div className="grid gap-2 ">
+            <Label htmlFor="name-tr">Türkçe İsim</Label>
             <Input
               id="name-tr"
               placeholder="Oyun, Spor..."
@@ -210,32 +209,39 @@ export function AddInterestDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="logo">Thumbnail URL</Label>
-            <div className="flex gap-2">
-              <Input
-                id="logo"
-                placeholder="Thumbnail.png"
-                value={formData.thumbnail}
-                onChange={(e) =>
-                  setFormData({ ...formData, thumbnail: e.target.value })
-                }
-                className="placeholder:text-muted-foreground/40"
-              />
-              <input
-                type="file"
-                ref={fileInputRef}
-                onChange={handleFileSelect}
-                accept="image/*"
-                className="hidden"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={handleUploadClick}
-              >
-                <Upload className="h-4 w-4" />
-              </Button>
+            <Label className="text-foreground">Thumbnail</Label>
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  accept="image/*"
+                  onClick={(e) => e.stopPropagation()}
+                  className="hidden"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleUploadClick();
+                  }}
+                  className="w-full bg-[#FFCDE1] hover:bg-[#CDFBFF] text-[#1C1C1C] hover:text-[#1C1C1C] cursor-pointer"
+                >
+                  <Upload className="h-4 w-4 mr-2 text-[#1C1C1C] hover:text-[#1C1C1C]" />
+                  Thumbnail Yükle
+                </Button>
+              </div>
+              {formData.thumbnail && (
+                <div className="w-12 h-12 rounded-lg overflow-hidden border border-pink-500/20">
+                  <img
+                    src={formData.thumbnail}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>

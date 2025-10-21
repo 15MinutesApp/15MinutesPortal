@@ -4,22 +4,29 @@ import * as React from "react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { Search, Plus, Pencil, Trash2, PowerOff } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Interest, SubInterest } from "./types";
 import { AddInterestDialog } from "./add-interest-dialog";
+import { AddSubInterestDialog } from "./add-sub-interest-dialog";
 
 interface InterestsAccordionProps {
   data: Interest[];
+  onAdd?: (interest: Interest) => void;
+  onUpdate?: (interest: Interest) => void;
+  onAddSubInterest?: (parentId: string, subInterest: SubInterest) => void;
 }
 
-export function InterestsAccordion({ data }: InterestsAccordionProps) {
+export function InterestsAccordion({
+  data,
+  onAdd,
+  onUpdate,
+  onAddSubInterest,
+}: InterestsAccordionProps) {
   const [searchTerm, setSearchTerm] = React.useState("");
+  const [imageErrors, setImageErrors] = React.useState<Record<string, boolean>>(
+    {}
+  );
 
   const filteredData = React.useMemo(() => {
     if (!searchTerm) return data;
@@ -88,6 +95,22 @@ export function InterestsAccordion({ data }: InterestsAccordionProps) {
     </div>
   );
 
+  const [expandedRows, setExpandedRows] = React.useState<Set<string>>(
+    new Set()
+  );
+
+  const toggleRow = (interestId: string) => {
+    setExpandedRows((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(interestId)) {
+        newSet.delete(interestId);
+      } else {
+        newSet.add(interestId);
+      }
+      return newSet;
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
@@ -100,43 +123,85 @@ export function InterestsAccordion({ data }: InterestsAccordionProps) {
             className="pl-9 border-pink-500/30 focus-visible:ring-pink-500/50 focus-visible:border-pink-500/50"
           />
         </div>
-        <AddInterestDialog />
+        <AddInterestDialog onAdd={onAdd} />
       </div>
 
-      <div className="space-y-2">
-        <Accordion type="multiple" className="w-full">
+      <div className="bg-gradient-to-r from-pink-500/5 to-blue-400/5 rounded-xl   overflow-hidden">
+        {/* Table Header */}
+        <div className="bg-gradient-to-r from-pink-500/10 to-blue-400/10 border-b border-pink-500/30">
+          <div className="grid grid-cols-6 gap-4 px-6 py-4 text-sm font-semibold text-foreground">
+            <div className="text-left">Status</div>
+            <div className="text-left">Kategori</div>
+            <div className="text-center">Kullanıcı Sayısı</div>
+            <div className="text-center">Alt Kategori Sayısı</div>
+            <div className="text-center">İşlemler</div>
+            <div className="text-right"></div>
+          </div>
+        </div>
+
+        {/* Table Body */}
+        <div className="divide-y divide-pink-500/10">
           {filteredData.map((interest) => (
-            <AccordionItem
-              key={interest.id}
-              value={interest.id}
-              className="border border-pink-500/30 rounded-xl mb-3 bg-gradient-to-r from-pink-500/5 to-blue-400/5 hover:from-pink-500/10 hover:to-blue-400/10 transition-all duration-300"
-            >
-              <AccordionTrigger className="px-5 py-4 hover:no-underline group">
-                <div className="flex items-center justify-between w-full pr-4">
-                  <div className="flex items-center gap-4">
-                    <div className="text-left">
-                      <div className="font-bold text-foreground text-base">
-                        {interest.name}
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {interest.nameEn}
-                      </div>
+            <div key={interest.id}>
+              {/* Main Row */}
+              <div
+                className="grid grid-cols-6 gap-4 px-6 py-4 bg-gradient-to-r from-pink-500/1 to-blue-400/3 hover:from-pink-500/10 hover:to-blue-400/10 hover:bg-gradient-to-r cursor-pointer transition-all duration-300"
+                onClick={() => toggleRow(interest.id)}
+              >
+                <div className="flex items-center justify-left">
+                  <Switch
+                    checked={true}
+                    onClick={(e) => e.stopPropagation()}
+                    className="data-[state=checked]:bg-pink-500/50"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  {interest.thumbnail && !imageErrors[interest.id] ? (
+                    <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0 ring-1 ring-pink-500/20">
+                      <img
+                        src={interest.thumbnail}
+                        alt={interest.name}
+                        className="w-full h-full object-cover"
+                        onError={() => {
+                          setImageErrors((prev) => ({
+                            ...prev,
+                            [interest.id]: true,
+                          }));
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-pink-500/20 to-blue-400/20 flex items-center justify-center flex-shrink-0 ring-1 ring-pink-500/20">
+                      <span className="text-lg">{interest.icon}</span>
+                    </div>
+                  )}
+                  <div>
+                    <div className="font-bold text-foreground text-sm">
+                      {interest.name}
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {interest.nameEn}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant="secondary"
-                      className="font-semibold bg-pink-500/10 text-pink-400 border-pink-500/20"
-                    >
-                      {interest.userCount.toLocaleString("tr-TR")} kullanıcı
-                    </Badge>
-                    <Badge
-                      variant="outline"
-                      className="border-blue-400/30 text-blue-400"
-                    >
-                      {interest.subInterests.length} alt kategori
-                    </Badge>
-                    <div className="flex items-center gap-1">
+                </div>
+
+                <div className="flex justify-center items-center">
+                  <span className="inline-flex items-center px-2 py-0.2 rounded-2xl text-xs font-medium bg-pink-500/10 text-pink-400 border border-pink-500/20">
+                    {interest.userCount.toLocaleString("tr-TR")}
+                  </span>
+                </div>
+
+                <div className="flex justify-center items-center">
+                  <span className="inline-flex items-center px-2 py-0.2 rounded-2xl text-xs bg-blue-400/10 text-blue-400 border border-blue-400/20">
+                    {interest.subInterests.length} alt kategori
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-center gap-2">
+                  <AddInterestDialog
+                    editInterest={interest}
+                    onUpdate={onUpdate}
+                    trigger={
                       <Button
                         variant="ghost"
                         size="icon"
@@ -146,6 +211,16 @@ export function InterestsAccordion({ data }: InterestsAccordionProps) {
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
+                    }
+                  />
+                  <AddSubInterestDialog
+                    parentInterest={interest}
+                    onAdd={(subInterest) => {
+                      if (onAddSubInterest) {
+                        onAddSubInterest(interest.id, subInterest);
+                      }
+                    }}
+                    trigger={
                       <Button
                         variant="ghost"
                         size="icon"
@@ -155,42 +230,54 @@ export function InterestsAccordion({ data }: InterestsAccordionProps) {
                       >
                         <Plus className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 hover:bg-yellow-400/20 hover:text-yellow-400"
-                        title="Pasif Yap"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <PowerOff className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 hover:bg-red-500/20 hover:text-red-400"
-                        title="Sil"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+                    }
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 hover:bg-red-500/20 hover:text-red-400"
+                    title="Sil"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
-              </AccordionTrigger>
-              <AccordionContent className="px-4 pb-4">
-                {interest.subInterests.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                    {interest.subInterests.map(renderSubInterestItem)}
-                  </div>
-                ) : (
-                  <div className="py-8 text-center text-muted-foreground">
-                    Alt kategori bulunmuyor
-                  </div>
-                )}
-              </AccordionContent>
-            </AccordionItem>
+                <div className="flex items-center justify-end">
+                  <svg
+                    className={`w-4 h-4 text-pink-400 transition-transform ${
+                      expandedRows.has(interest.id) ? "rotate-90" : ""
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 5l7 7-7 7"
+                    />
+                  </svg>
+                </div>
+              </div>
+
+              {/* Expanded Content */}
+              {expandedRows.has(interest.id) && (
+                <div className="bg-gradient-to-r from-pink-500/1 to-blue-400/3 px-6 py-4">
+                  {interest.subInterests.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                      {interest.subInterests.map(renderSubInterestItem)}
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-sm text-muted-foreground">
+                      Alt kategori bulunmuyor
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           ))}
-        </Accordion>
+        </div>
       </div>
 
       <div className="flex items-center justify-between px-1">

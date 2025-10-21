@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -10,10 +10,56 @@ import { useAuth } from "@/contexts/AuthContext";
 import { InterestsAccordion } from "./interests-accordion";
 import { interestsData } from "./data";
 import { Toaster } from "@/components/ui/toaster";
+import { Interest } from "./types";
 
 export default function InterestsPage() {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const [interests, setInterests] = useState<Interest[]>([]);
+
+  useEffect(() => {
+    const savedInterests = localStorage.getItem("interests");
+    if (savedInterests) {
+      setInterests(JSON.parse(savedInterests));
+    } else {
+      setInterests(interestsData);
+      localStorage.setItem("interests", JSON.stringify(interestsData));
+    }
+  }, []);
+
+  const handleAddInterest = (newInterest: Interest) => {
+    setInterests((prev) => {
+      const updated = [...prev, newInterest];
+      localStorage.setItem("interests", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleUpdateInterest = (updatedInterest: Interest) => {
+    setInterests((prev) => {
+      const updated = prev.map((interest) =>
+        interest.id === updatedInterest.id ? updatedInterest : interest
+      );
+      localStorage.setItem("interests", JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleAddSubInterest = (parentId: string, subInterest: SubInterest) => {
+    setInterests((prev) => {
+      const updated = prev.map((interest) => {
+        if (interest.id === parentId) {
+          return {
+            ...interest,
+            subInterests: [...interest.subInterests, subInterest],
+          };
+        }
+        return interest;
+      });
+      localStorage.setItem("interests", JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -37,7 +83,7 @@ export default function InterestsPage() {
     <SidebarProvider className="dark">
       <AppSidebar />
       <SidebarInset>
-        <header className="flex h-16 shrink-0 items-center gap-2 bg-card px-4">
+        <header className="flex h-16 shrink-0 items-center gap-2 bg-card  px-4">
           <div className="flex items-center gap-2">
             <SidebarTrigger className="-ml-1 text-foreground" />
             <Separator orientation="vertical" className="mr-2 h-4" />
@@ -53,7 +99,12 @@ export default function InterestsPage() {
               halinde yönetin.
             </p>
           </div>
-          <InterestsAccordion data={interestsData} />
+          <InterestsAccordion
+            data={interests}
+            onAdd={handleAddInterest}
+            onUpdate={handleUpdateInterest}
+            onAddSubInterest={handleAddSubInterest}
+          />
         </div>
       </SidebarInset>
       <Toaster />

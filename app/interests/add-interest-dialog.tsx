@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -21,29 +21,46 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Upload } from "lucide-react";
+import { Plus, Upload, CheckCircle2, XCircle } from "lucide-react";
+import { Interest } from "./types";
 
-export function AddInterestDialog() {
+interface AddInterestDialogProps {
+  onAdd?: (interest: Interest) => void;
+  onUpdate?: (interest: Interest) => void;
+  editInterest?: Interest;
+  trigger?: React.ReactNode;
+}
+
+export function AddInterestDialog({
+  onAdd,
+  onUpdate,
+  editInterest,
+  trigger,
+}: AddInterestDialogProps) {
   const [open, setOpen] = useState(false);
-  const [isSubCategory, setIsSubCategory] = useState(false);
   const [formData, setFormData] = useState({
     nameTr: "",
     nameEn: "",
     thumbnail: "",
     icon: "",
     color: "",
-    parentCategoryId: "",
   });
   const [isLoading, setIsLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { toast } = useToast();
 
-  // Mock categories - sonra backenden gelecek
-  const categories = [
-    { id: "gaming", name: "Oyunlar" },
-    { id: "music", name: "Müzik" },
-    { id: "sports", name: "Spor" },
-  ];
+  useEffect(() => {
+    if (editInterest) {
+      setFormData({
+        nameTr: editInterest.name,
+        nameEn: editInterest.nameEn,
+        thumbnail: editInterest.thumbnail || "",
+        icon: editInterest.icon,
+        color: editInterest.color,
+      });
+    }
+  }, [editInterest]);
 
   const resetForm = () => {
     setFormData({
@@ -52,25 +69,31 @@ export function AddInterestDialog() {
       thumbnail: "",
       icon: "",
       color: "",
-      parentCategoryId: "",
     });
-    setIsSubCategory(false);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // TODO: Dosyayı backend'e yükle ve URL al
+      setFormData({ ...formData, thumbnail: file.name });
+    }
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
   };
 
   const handleSubmit = async () => {
     if (!formData.nameTr || !formData.nameEn) {
       toast({
         title: "Hata",
-        description: "Lütfen tüm zorunlu alanları doldurun",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (isSubCategory && !formData.parentCategoryId) {
-      toast({
-        title: "Hata",
-        description: "Lütfen ana kategori seçin",
+        description: (
+          <div className="flex items-center gap-2">
+            <XCircle className="h-4 w-4" />
+            <span>Lütfen tüm zorunlu alanları doldurun</span>
+          </div>
+        ),
         variant: "destructive",
       });
       return;
@@ -80,17 +103,57 @@ export function AddInterestDialog() {
 
     // Simüle edilmiş API çağrısı - sonra backend'e bağlanacak
     setTimeout(() => {
-      console.log("Form Data:", {
-        isSubCategory,
-        ...formData,
-      });
+      console.log("Form Data:", formData);
 
-      toast({
-        title: "Başarılı",
-        description: isSubCategory
-          ? "Alt kategori oluşturuldu (Mock)"
-          : "Ana kategori oluşturuldu (Mock)",
-      });
+      if (editInterest) {
+        // Update mode
+        const updatedInterest: Interest = {
+          ...editInterest,
+          name: formData.nameTr,
+          nameEn: formData.nameEn,
+          icon: formData.icon || editInterest.icon,
+          color: formData.color || editInterest.color,
+          thumbnail: formData.thumbnail || undefined,
+        };
+
+        onUpdate?.(updatedInterest);
+
+        toast({
+          title: "Başarılı",
+          description: (
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <span>"{formData.nameTr}" kategorisi başarıyla güncellendi</span>
+            </div>
+          ),
+          className: "border-green-500/50 bg-green-500/10",
+        });
+      } else {
+        // Add mode
+        const newInterest: Interest = {
+          id: `interest-${Date.now()}`,
+          name: formData.nameTr,
+          nameEn: formData.nameEn,
+          icon: formData.icon || "🎮",
+          color: formData.color || "#ec4899",
+          thumbnail: formData.thumbnail || undefined,
+          userCount: 0,
+          subInterests: [],
+        };
+
+        onAdd?.(newInterest);
+
+        toast({
+          title: "Başarılı",
+          description: (
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              <span>"{formData.nameTr}" kategorisi başarıyla eklendi</span>
+            </div>
+          ),
+          className: "border-green-500/50 bg-green-500/10",
+        });
+      }
 
       setIsLoading(false);
       setOpen(false);
@@ -101,81 +164,35 @@ export function AddInterestDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-          <Plus className="mr-2 h-4 w-4" />
-          Yeni Kategori Ekle
-        </Button>
+        {trigger || (
+          <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+            <Plus className="mr-2 h-4 w-4" />
+            Yeni Kategori Ekle
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Yeni İlgi Alanı Ekle</DialogTitle>
+          <DialogTitle>
+            {editInterest ? "İlgi Alanını Düzenle" : "Yeni İlgi Alanı Ekle"}
+          </DialogTitle>
           <DialogDescription>
-            Yeni bir kategori veya alt kategori oluşturun
+            {editInterest
+              ? "Ana kategori bilgilerini güncelleyin"
+              : "Yeni bir ana kategori oluşturun"}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label className="text-sm font-medium">Kategori Türü</Label>
-            <div className="inline-flex rounded-lg border border-pink-500/30 bg-muted p-1">
-              <Button
-                type="button"
-                variant={!isSubCategory ? "default" : "ghost"}
-                className={`flex-1 ${
-                  !isSubCategory
-                    ? "bg-gradient-to-r from-pink-500 to-blue-400 text-white hover:from-pink-600 hover:to-blue-500"
-                    : "hover:bg-transparent"
-                }`}
-                onClick={() => setIsSubCategory(false)}
-              >
-                Ana Kategori
-              </Button>
-              <Button
-                type="button"
-                variant={isSubCategory ? "default" : "ghost"}
-                className={`flex-1 ${
-                  isSubCategory
-                    ? "bg-gradient-to-r from-pink-500 to-blue-400 text-white hover:from-pink-600 hover:to-blue-500"
-                    : "hover:bg-transparent"
-                }`}
-                onClick={() => setIsSubCategory(true)}
-              >
-                Alt Kategori
-              </Button>
-            </div>
-          </div>
-
-          {isSubCategory && (
-            <div className="grid gap-2">
-              <Label htmlFor="parent">Ana Kategori</Label>
-              <Select
-                value={formData.parentCategoryId}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, parentCategoryId: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Ana kategori seçin" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category: any) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          <div className="grid gap-2">
-            <Label htmlFor="name-tr">Türkçe İsim</Label>
+            <Label htmlFor="name-tr">İsim</Label>
             <Input
               id="name-tr"
-              placeholder="Örn: Oyun, Spor..."
+              placeholder="Oyun, Spor..."
               value={formData.nameTr}
               onChange={(e) =>
                 setFormData({ ...formData, nameTr: e.target.value })
               }
+              className="placeholder:text-muted-foreground/40"
             />
           </div>
 
@@ -183,11 +200,12 @@ export function AddInterestDialog() {
             <Label htmlFor="name-en">İngilizce İsim</Label>
             <Input
               id="name-en"
-              placeholder="Örn: Gaming, Sports..."
+              placeholder="Gaming, Sports..."
               value={formData.nameEn}
               onChange={(e) =>
                 setFormData({ ...formData, nameEn: e.target.value })
               }
+              className="placeholder:text-muted-foreground/40"
             />
           </div>
 
@@ -196,55 +214,30 @@ export function AddInterestDialog() {
             <div className="flex gap-2">
               <Input
                 id="logo"
-                placeholder="https://example.com/logo.png"
+                placeholder="Thumbnail.png"
                 value={formData.thumbnail}
                 onChange={(e) =>
                   setFormData({ ...formData, thumbnail: e.target.value })
                 }
+                className="placeholder:text-muted-foreground/40"
               />
-              <Button type="button" variant="outline" size="icon">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                accept="image/*"
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={handleUploadClick}
+              >
                 <Upload className="h-4 w-4" />
               </Button>
             </div>
           </div>
-
-          {!isSubCategory && (
-            <>
-              <div className="grid gap-2">
-                <Label htmlFor="icon">İkon (Emoji)</Label>
-                <Input
-                  id="icon"
-                  placeholder="🕹️"
-                  maxLength={2}
-                  value={formData.icon}
-                  onChange={(e) =>
-                    setFormData({ ...formData, icon: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="color">Renk</Label>
-                <Select
-                  value={formData.color}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, color: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Renk seçin" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="bg-purple-500">Mor</SelectItem>
-                    <SelectItem value="bg-pink-500">Pembe</SelectItem>
-                    <SelectItem value="bg-green-500">Yeşil</SelectItem>
-                    <SelectItem value="bg-blue-500">Mavi</SelectItem>
-                    <SelectItem value="bg-orange-500">Turuncu</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          )}
         </div>
         <DialogFooter>
           <Button
@@ -257,7 +250,11 @@ export function AddInterestDialog() {
             İptal
           </Button>
           <Button type="submit" onClick={handleSubmit} disabled={isLoading}>
-            {isLoading ? "Kaydediliyor..." : "Kaydet"}
+            {isLoading
+              ? "Kaydediliyor..."
+              : editInterest
+              ? "Güncelle"
+              : "Kaydet"}
           </Button>
         </DialogFooter>
       </DialogContent>

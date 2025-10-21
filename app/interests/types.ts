@@ -12,6 +12,7 @@ export type Interest = {
   nameEn: string;
   icon: string;
   color: string;
+  thumbnail?: string;
   userCount: number;
   subInterests: SubInterest[];
 };

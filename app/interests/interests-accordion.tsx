@@ -270,7 +270,7 @@ export function InterestsAccordion({
                     </div>
                   ) : (
                     <div className="py-8 text-center text-sm text-muted-foreground">
-                      Alt kategori bulunmuyor
+                      Alt kategori bulunmuyor.
                     </div>
                   )}
                 </div>

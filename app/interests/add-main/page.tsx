@@ -22,13 +22,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Upload, CheckCircle2, XCircle } from "lucide-react";
-import { Interest } from "./types";
+import { Interest } from "../types";
 
 interface AddInterestDialogProps {
   onAdd?: (interest: Interest) => void;
   onUpdate?: (interest: Interest) => void;
   editInterest?: Interest;
   trigger?: React.ReactNode;
+  interestCategories?: Array<{ id: string; name: string }>;
 }
 
 export function AddInterestDialog({
@@ -36,6 +37,7 @@ export function AddInterestDialog({
   onUpdate,
   editInterest,
   trigger,
+  interestCategories = [],
 }: AddInterestDialogProps) {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -44,6 +46,7 @@ export function AddInterestDialog({
     thumbnail: "",
     icon: "",
     color: "",
+    interestCategoryId: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +61,7 @@ export function AddInterestDialog({
         thumbnail: editInterest.thumbnail || "",
         icon: editInterest.icon,
         color: editInterest.color,
+        interestCategoryId: editInterest.interestCategory?.id || "",
       });
     } else if (!editInterest && open) {
       setFormData({
@@ -66,6 +70,7 @@ export function AddInterestDialog({
         thumbnail: "",
         icon: "",
         color: "",
+        interestCategoryId: "",
       });
     }
   }, [editInterest, open]);
@@ -78,6 +83,7 @@ export function AddInterestDialog({
         thumbnail: "",
         icon: "",
         color: "",
+        interestCategoryId: "",
       });
     }
   };
@@ -142,6 +148,9 @@ export function AddInterestDialog({
           color: formData.color || "#ec4899",
           thumbnail: formData.thumbnail || undefined,
           userCount: 0,
+          isActive: true,
+          interestCategory:
+            interestCategories.length > 0 ? interestCategories[0] : undefined,
           subInterests: [],
         };
 

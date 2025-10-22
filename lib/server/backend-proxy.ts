@@ -36,7 +36,40 @@ export async function proxyRequestToBackend(
 
   // Gelen isteğin Cookie header'ını backend'e iletiyoruz (TOTP challenge token için gerekli).
   if (req.headers.has("cookie")) {
-    headers.set("cookie", req.headers.get("cookie")!);
+    const cookieHeader = req.headers.get("cookie")!;
+    console.log("[Backend Proxy] Request cookies:", cookieHeader);
+
+    headers.set("cookie", cookieHeader);
+
+    // Cookie'den access_token'ı alıp Bearer token olarak Authorization header'ına ekle
+    const accessTokenMatch = cookieHeader.match(/accessToken=([^;]+)/);
+    const refreshTokenMatch = cookieHeader.match(/refreshToken=([^;]+)/);
+
+    if (accessTokenMatch) {
+      const accessToken = accessTokenMatch[1];
+      console.log(
+        "[Backend Proxy] Found access token in cookie, setting Authorization header"
+      );
+      console.log(
+        "[Backend Proxy] Access token (first 20 chars):",
+        accessToken.substring(0, 20) + "..."
+      );
+      headers.set("authorization", `Bearer ${accessToken}`);
+    } else {
+      console.log("[Backend Proxy] No access token found in cookies");
+      console.log("[Backend Proxy] Available cookies:", cookieHeader);
+    }
+
+    // Refresh token'ı da gönder (Admin_refreshTokens mutation'ı için)
+    if (refreshTokenMatch) {
+      const refreshToken = refreshTokenMatch[1];
+      console.log(
+        "[Backend Proxy] Found refresh token in cookie, adding to headers"
+      );
+      headers.set("x-refresh-token", refreshToken);
+    }
+  } else {
+    console.log("[Backend Proxy] No cookies found in request");
   }
 
   // Content-Type genelde json olur, değilse options'tan gelenle ezilir.
@@ -45,6 +78,12 @@ export async function proxyRequestToBackend(
   }
 
   const backendUrl = `${process.env.BACKEND_API_URL}/${path}`;
+
+  // Debug: Backend'e gönderilen header'ları logla
+  console.log("[Backend Proxy] Sending headers to backend:");
+  console.log("[Backend Proxy] Authorization:", headers.get("authorization"));
+  console.log("[Backend Proxy] Cookie:", headers.get("cookie"));
+  console.log("[Backend Proxy] Backend URL:", backendUrl);
 
   try {
     const response = await fetch(backendUrl, {

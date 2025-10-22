@@ -15,13 +15,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Upload, CheckCircle2, XCircle } from "lucide-react";
-import { SubInterest, Interest } from "./types";
+import { Interest } from "../types";
 
 interface AddSubInterestDialogProps {
   parentInterest: Interest;
-  onAdd?: (subInterest: SubInterest) => void;
-  onUpdate?: (subInterest: SubInterest) => void;
-  editSubInterest?: SubInterest;
+  onAdd?: (subInterest: Interest) => void;
+  onUpdate?: (subInterest: Interest) => void;
+  editSubInterest?: Interest;
   trigger?: React.ReactNode;
 }
 
@@ -34,9 +34,8 @@ export function AddSubInterestDialog({
 }: AddSubInterestDialogProps) {
   const [open, setOpen] = useState(false);
   const [formData, setFormData] = useState({
-    nameTr: "",
-    nameEn: "",
-    logo: "",
+    name: "",
+    thumbnail: "",
     userCount: 0,
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -47,16 +46,14 @@ export function AddSubInterestDialog({
   React.useEffect(() => {
     if (editSubInterest && open) {
       setFormData({
-        nameTr: editSubInterest.name,
-        nameEn: editSubInterest.nameEn,
-        logo: editSubInterest.logo || "",
+        name: editSubInterest.name,
+        thumbnail: editSubInterest.thumbnail || "",
         userCount: editSubInterest.userCount,
       });
     } else if (!editSubInterest && open) {
       setFormData({
-        nameTr: "",
-        nameEn: "",
-        logo: "",
+        name: "",
+        thumbnail: "",
         userCount: 0,
       });
     }
@@ -75,7 +72,7 @@ export function AddSubInterestDialog({
       const reader = new FileReader();
       reader.onload = (e) => {
         const result = e.target?.result as string;
-        handleInputChange("logo", result);
+        handleInputChange("thumbnail", result);
       };
       reader.readAsDataURL(file);
     }
@@ -84,10 +81,10 @@ export function AddSubInterestDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.nameTr.trim() || !formData.nameEn.trim()) {
+    if (!formData.name.trim()) {
       toast({
         title: "Hata",
-        description: "Türkçe ve İngilizce isim alanları zorunludur.",
+        description: "İsim alanı zorunludur.",
         variant: "destructive",
       });
       return;
@@ -98,12 +95,14 @@ export function AddSubInterestDialog({
     try {
       if (editSubInterest) {
         // Edit mode
-        const updatedSubInterest: SubInterest = {
+        const updatedSubInterest: Interest = {
           ...editSubInterest,
-          name: formData.nameTr.trim(),
-          nameEn: formData.nameEn.trim(),
-          logo: formData.logo || undefined,
+          name: formData.name.trim(),
+          thumbnail: formData.thumbnail || undefined,
           userCount: formData.userCount || 0,
+          isActive: true,
+          interestCategory: parentInterest,
+          subInterests: [],
         };
 
         if (onUpdate) {
@@ -117,12 +116,14 @@ export function AddSubInterestDialog({
         });
       } else {
         // Add mode
-        const newSubInterest: SubInterest = {
+        const newSubInterest: Interest = {
           id: `sub-${Date.now()}`,
-          name: formData.nameTr.trim(),
-          nameEn: formData.nameEn.trim(),
-          logo: formData.logo || undefined,
+          name: formData.name.trim(),
+          thumbnail: formData.thumbnail || undefined,
           userCount: formData.userCount || 0,
+          isActive: true,
+          interestCategory: parentInterest,
+          subInterests: [],
         };
 
         if (onAdd) {
@@ -137,9 +138,8 @@ export function AddSubInterestDialog({
       }
 
       setFormData({
-        nameTr: "",
-        nameEn: "",
-        logo: "",
+        name: "",
+        thumbnail: "",
         userCount: 0,
       });
       setOpen(false);
@@ -157,9 +157,8 @@ export function AddSubInterestDialog({
   const resetForm = () => {
     if (!editSubInterest) {
       setFormData({
-        nameTr: "",
-        nameEn: "",
-        logo: "",
+        name: "",
+        thumbnail: "",
         userCount: 0,
       });
     }
@@ -196,26 +195,13 @@ export function AddSubInterestDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="nameTr">Türkçe İsim</Label>
+            <Label htmlFor="name">İsim</Label>
             <Input
-              id="nameTr"
-              value={formData.nameTr}
-              onChange={(e) => handleInputChange("nameTr", e.target.value)}
+              id="name"
+              value={formData.name}
+              onChange={(e) => handleInputChange("name", e.target.value)}
               onClick={(e) => e.stopPropagation()}
               placeholder="League of Legends, Futbol..."
-              className="placeholder:text-muted-foreground/40"
-              required
-            />
-          </div>
-
-          <div className="grid gap-2">
-            <Label htmlFor="nameEn">İngilizce İsim</Label>
-            <Input
-              id="nameEn"
-              value={formData.nameEn}
-              onChange={(e) => handleInputChange("nameEn", e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-              placeholder="League of Legends, Soccer..."
               className="placeholder:text-muted-foreground/40"
               required
             />
@@ -246,10 +232,10 @@ export function AddSubInterestDialog({
                   Thumbnail Yükle
                 </Button>
               </div>
-              {formData.logo && (
+              {formData.thumbnail && (
                 <div className="w-12 h-12 rounded-lg overflow-hidden border border-pink-500/20">
                   <img
-                    src={formData.logo}
+                    src={formData.thumbnail}
                     alt="Preview"
                     className="w-full h-full object-cover"
                   />

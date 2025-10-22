@@ -7,15 +7,72 @@ import {
 import { setContext } from "@apollo/client/link/context";
 import { onError } from "@apollo/client/link/error";
 import { gql } from "@apollo/client";
-import { tokenStorage } from "@/lib/auth/authService";
+// import { tokenStorage } from "@/lib/auth/authService";
 
-// HTTP Link - proxy endpoint kullanıyoruz
+// HTTP-only cookie'ler için refresh token mekanizması
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value?: any) => void;
+  reject: (error?: any) => void;
+}> = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(({ resolve, reject }) => {
+    if (error) {
+      reject(error);
+    } else {
+      resolve(token);
+    }
+  });
+
+  failedQueue = [];
+};
+
+// Refresh token fonksiyonu
+const refreshToken = async (): Promise<string | null> => {
+  try {
+    const response = await fetch("/api/graphql", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include", // HTTP-only cookie'leri dahil et
+      body: JSON.stringify({
+        query: `
+          mutation AdminRefreshTokens($refreshToken: String!) {
+            Admin_refreshTokens(refreshToken: $refreshToken) {
+              accessToken
+              refreshToken
+            }
+          }
+        `,
+        variables: {
+          refreshToken: "dummy", // Backend x-refresh-token header'ından alacak
+        },
+      }),
+    });
+
+    const result = await response.json();
+
+    if (result.errors) {
+      throw new Error(result.errors[0].message);
+    }
+
+    // Yeni token'lar cookie'ye otomatik olarak set edilecek
+    return result.data.Admin_refreshTokens.accessToken;
+  } catch (error) {
+    console.error("Token refresh failed:", error);
+    return null;
+  }
+};
+
+// HTTP Link - proxy endpoint kullanıyoruz, credentials: 'include' ile HTTP-only cookie'leri dahil et
 const httpLink = createHttpLink({
   uri: "/api/graphql",
+  credentials: "include", // HTTP-only cookie'leri dahil et
 });
 
-// Auth Link - token'ı header'a ekler
-// Note: Tokens are now in HTTP-only cookies and handled by /api/graphql endpoint
+// Auth Link - HTTP-only cookie'ler otomatik olarak gönderilir
 const authLink = setContext((_, { headers }) => {
   return {
     headers: {
@@ -24,23 +81,68 @@ const authLink = setContext((_, { headers }) => {
   };
 });
 
-// Error Link - hataları yakalar
-const errorLink = onError((error) => {
-  const graphQLErrors = (error as any).graphQLErrors as any[] | undefined;
-  const networkError = (error as any).networkError as unknown | undefined;
+// Error Link - hataları yakalar ve token refresh işlemi yapar
+const errorLink = onError(
+  ({ graphQLErrors, networkError, operation, forward }: any) => {
+    if (graphQLErrors) {
+      graphQLErrors.forEach(({ message, locations, path }: any) => {
+        console.error(
+          `[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`
+        );
+      });
 
-  if (graphQLErrors) {
-    graphQLErrors.forEach(({ message, locations, path }: any) => {
-      console.error(
-        `[GraphQL error]: Message: ${message}, Location: ${locations}, Path: ${path}`
+      // 401 Unauthorized hatası kontrolü
+      const unauthorizedError = graphQLErrors.find(
+        (error: any) =>
+          error.message.includes("Admin authentication required") ||
+          error.message.includes("Unauthorized") ||
+          error.message.includes("401")
       );
-    });
-  }
 
-  if (networkError) {
-    console.error(`[Network error]: ${networkError}`);
+      if (unauthorizedError && !isRefreshing) {
+        isRefreshing = true;
+        console.log(
+          "[Apollo Client] 401 detected, attempting token refresh..."
+        );
+
+        refreshToken()
+          .then((newToken) => {
+            console.log("[Apollo Client] Token refresh successful");
+            processQueue(null, newToken);
+            isRefreshing = false;
+
+            // Başarılı refresh sonrası orijinal request'i tekrar dene
+            if (forward) {
+              console.log(
+                "[Apollo Client] Retrying original request after refresh"
+              );
+              return forward(operation);
+            }
+          })
+          .catch((refreshError) => {
+            console.error(
+              "[Apollo Client] Token refresh failed:",
+              refreshError
+            );
+            processQueue(refreshError, null);
+            isRefreshing = false;
+
+            // Refresh başarısız olursa kullanıcıyı login sayfasına yönlendir
+            if (typeof window !== "undefined") {
+              console.log(
+                "[Apollo Client] Redirecting to login due to refresh failure"
+              );
+              window.location.href = "/login";
+            }
+          });
+      }
+    }
+
+    if (networkError) {
+      console.error(`[Network error]: ${networkError}`);
+    }
   }
-});
+);
 
 // Apollo Client oluştur
 export const apolloClient = new ApolloClient({

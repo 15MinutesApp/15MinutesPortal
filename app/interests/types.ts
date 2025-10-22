@@ -4,15 +4,20 @@ export type SubInterest = {
   nameEn: string;
   logo?: string;
   userCount: number;
+  isActive: boolean;
+};
+
+export type InterestCategory = {
+  id: string;
+  name: string;
 };
 
 export type Interest = {
   id: string;
   name: string;
-  nameEn: string;
-  icon: string;
-  color: string;
   thumbnail?: string;
   userCount: number;
-  subInterests: SubInterest[];
+  isActive: boolean;
+  interestCategory?: InterestCategory;
+  subInterests?: Interest[]; // Alt kategoriler de Interest type'ı olacak
 };

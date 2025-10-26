@@ -10,6 +10,7 @@ interface AuthContextType {
   adminEmail: string | null;
   login: (accessToken: string, refreshToken: string, email?: string) => void;
   logout: () => void;
+  refreshAccessToken: () => Promise<boolean>;
   isLoading: boolean;
 }
 
@@ -78,6 +79,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAuthenticated(true);
   };
 
+  const refreshAccessToken = async (): Promise<boolean> => {
+    try {
+      const response = await fetch("/api/auth/refresh", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        console.log("Token refreshed successfully");
+        return true;
+      } else {
+        console.log("Token refresh failed");
+        return false;
+      }
+    } catch (error) {
+      console.error("Token refresh error:", error);
+      return false;
+    }
+  };
+
   const logout = async () => {
     try {
       // Logout endpoint'ini çağır ve HTTP-only cookie'leri sil
@@ -108,6 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         adminEmail,
         login,
         logout,
+        refreshAccessToken,
         isLoading,
       }}
     >

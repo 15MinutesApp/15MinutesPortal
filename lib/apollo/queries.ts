@@ -126,6 +126,18 @@ export const ADMIN_UPDATE_INTEREST_CATEGORY = gql`
   }
 `;
 
+export const ADMIN_DELETE_INTEREST = gql`
+  mutation AdminDeleteInterest($id: ID!) {
+    Admin_deleteInterest(id: $id)
+  }
+`;
+
+export const ADMIN_DELETE_INTEREST_CATEGORY = gql`
+  mutation AdminDeleteInterestCategory($id: ID!) {
+    Admin_deleteInterestCategory(id: $id)
+  }
+`;
+
 export const ADMIN_INTEREST_CATEGORIES = gql`
   query AdminInterestCategories {
     Admin_interestCategories {
@@ -139,6 +151,21 @@ export const ADMIN_INTEREST_CATEGORIES = gql`
         name
         thumbnail
         userCount
+      }
+    }
+  }
+`;
+
+export const ADMIN_INTERESTS = gql`
+  query AdminInterests {
+    Admin_interests {
+      id
+      name
+      thumbnail
+      userCount
+      interestCategory {
+        id
+        name
       }
     }
   }

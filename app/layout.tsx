@@ -4,7 +4,7 @@ import { Nunito } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { Suspense } from "react";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider } from "../contexts/AuthContext";
 import { Toaster } from "@/components/ui/sonner";
 import { ApolloProviderWrapper } from "@/lib/apollo/provider";
 

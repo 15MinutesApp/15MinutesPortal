@@ -25,7 +25,7 @@ export async function proxyRequestToBackend(
   const headers = new Headers(options.headers);
 
   // Kendi özel ve güvenli header'larımızı ekliyoruz.
-  headers.set("X-Proxy-Secret", process.env.PROXY_SECRET!);
+  headers.set("X-Proxy-Secret", process.env.PROXY_SECRET || "default-secret");
   headers.set("X-Original-User-IP", originalUserIp);
   headers.set("X-Original-User-Agent", originalUserAgent);
 
@@ -77,7 +77,15 @@ export async function proxyRequestToBackend(
     headers.set("content-type", "application/json");
   }
 
-  const backendUrl = `${process.env.BACKEND_API_URL}/${path}`;
+  const backendUrl = process.env.BACKEND_API_URL
+    ? `${process.env.BACKEND_API_URL}/${path}`
+    : `http://localhost:4000/${path}`;
+
+  console.log("[Backend Proxy] Backend URL:", backendUrl);
+  console.log(
+    "[Backend Proxy] Environment BACKEND_API_URL:",
+    process.env.BACKEND_API_URL
+  );
 
   // Debug: Backend'e gönderilen header'ları logla
   console.log("[Backend Proxy] Sending headers to backend:");
@@ -86,10 +94,24 @@ export async function proxyRequestToBackend(
   console.log("[Backend Proxy] Backend URL:", backendUrl);
 
   try {
+    console.log("[Backend Proxy] Making request to:", backendUrl);
+    console.log("[Backend Proxy] Request body:", options.body);
     const response = await fetch(backendUrl, {
       ...options,
       headers,
     });
+
+    console.log("[Backend Proxy] Response status:", response.status);
+    console.log(
+      "[Backend Proxy] Response headers:",
+      Object.fromEntries(response.headers.entries())
+    );
+
+    // Log response body for debugging
+    const responseClone = response.clone();
+    const responseText = await responseClone.text();
+    console.log("[Backend Proxy] Response body:", responseText);
+
     return response;
   } catch (error) {
     console.error(

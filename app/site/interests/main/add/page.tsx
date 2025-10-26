@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -10,7 +10,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Upload, CheckCircle2, XCircle } from "lucide-react";
-import { Interest } from "../types";
+import { Interest } from "../../types";
 
 interface AddInterestDialogProps {
   onAdd?: (interest: Interest) => void;
@@ -30,6 +29,8 @@ interface AddInterestDialogProps {
   editInterest?: Interest;
   trigger?: React.ReactNode;
   interestCategories?: Array<{ id: string; name: string }>;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function AddInterestDialog({
@@ -38,15 +39,16 @@ export function AddInterestDialog({
   editInterest,
   trigger,
   interestCategories = [],
+  open: externalOpen,
+  onOpenChange: externalOnOpenChange,
 }: AddInterestDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen =
+    externalOnOpenChange || ((value: boolean) => setInternalOpen(value));
   const [formData, setFormData] = useState({
-    nameTr: "",
-    nameEn: "",
+    name: "",
     thumbnail: "",
-    icon: "",
-    color: "",
-    interestCategoryId: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -56,21 +58,13 @@ export function AddInterestDialog({
   useEffect(() => {
     if (editInterest && open) {
       setFormData({
-        nameTr: editInterest.name,
-        nameEn: editInterest.nameEn,
+        name: editInterest.name,
         thumbnail: editInterest.thumbnail || "",
-        icon: editInterest.icon,
-        color: editInterest.color,
-        interestCategoryId: editInterest.interestCategory?.id || "",
       });
     } else if (!editInterest && open) {
       setFormData({
-        nameTr: "",
-        nameEn: "",
+        name: "",
         thumbnail: "",
-        icon: "",
-        color: "",
-        interestCategoryId: "",
       });
     }
   }, [editInterest, open]);
@@ -78,12 +72,8 @@ export function AddInterestDialog({
   const resetForm = () => {
     if (!editInterest) {
       setFormData({
-        nameTr: "",
-        nameEn: "",
+        name: "",
         thumbnail: "",
-        icon: "",
-        color: "",
-        interestCategoryId: "",
       });
     }
   };
@@ -105,10 +95,10 @@ export function AddInterestDialog({
   };
 
   const handleSubmit = async () => {
-    if (!formData.nameTr || !formData.nameEn) {
+    if (!formData.name) {
       toast({
         title: "Hata",
-        description: "Lütfen tüm zorunlu alanları doldurun",
+        description: "Lütfen kategori adını girin",
         variant: "destructive",
       });
       return;
@@ -116,69 +106,61 @@ export function AddInterestDialog({
 
     setIsLoading(true);
 
-    // Simüle edilmiş API çağrısı - sonra backend'e bağlanacak
-    setTimeout(() => {
-      console.log("Form Data:", formData);
-
+    try {
       if (editInterest) {
         // Update mode
         const updatedInterest: Interest = {
           ...editInterest,
-          name: formData.nameTr,
-          nameEn: formData.nameEn,
-          icon: formData.icon || editInterest.icon,
-          color: formData.color || editInterest.color,
+          name: formData.name,
           thumbnail: formData.thumbnail || undefined,
+          isActive: true,
+          interestCategory: editInterest.interestCategory,
+          subInterests: editInterest.subInterests || [],
         };
 
-        onUpdate?.(updatedInterest);
+        await onUpdate?.(updatedInterest);
 
         toast({
           title: "Başarılı",
-          description: `"${formData.nameTr}" kategorisi başarıyla güncellendi`,
-          variant: "success",
+          description: `"${formData.name}" kategorisi başarıyla güncellendi`,
+          variant: "default",
         });
       } else {
         // Add mode
         const newInterest: Interest = {
           id: `interest-${Date.now()}`,
-          name: formData.nameTr,
-          nameEn: formData.nameEn,
-          icon: formData.icon || "🎮",
-          color: formData.color || "#ec4899",
+          name: formData.name,
           thumbnail: formData.thumbnail || undefined,
           userCount: 0,
           isActive: true,
-          interestCategory:
-            interestCategories.length > 0 ? interestCategories[0] : undefined,
+          interestCategory: undefined,
           subInterests: [],
         };
 
-        onAdd?.(newInterest);
+        await onAdd?.(newInterest);
 
         toast({
           title: "Başarılı",
-          description: `"${formData.nameTr}" kategorisi başarıyla eklendi`,
-          variant: "success",
+          description: `"${formData.name}" kategorisi başarıyla eklendi`,
+          variant: "default",
         });
       }
 
-      setIsLoading(false);
       setOpen(false);
       resetForm();
-    }, 1000);
+    } catch (error) {
+      toast({
+        title: "Hata",
+        description: "İşlem sırasında bir hata oluştu",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger || (
-          <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
-            <Plus className="mr-2 h-4 w-4" />
-            Yeni Kategori Ekle
-          </Button>
-        )}
-      </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>
@@ -191,27 +173,14 @@ export function AddInterestDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid gap-2 ">
-            <Label htmlFor="name-tr">Türkçe İsim</Label>
-            <Input
-              id="name-tr"
-              placeholder="Oyun, Spor..."
-              value={formData.nameTr}
-              onChange={(e) =>
-                setFormData({ ...formData, nameTr: e.target.value })
-              }
-              className="placeholder:text-muted-foreground/40"
-            />
-          </div>
-
           <div className="grid gap-2">
-            <Label htmlFor="name-en">İngilizce İsim</Label>
+            <Label htmlFor="name">Kategori Adı</Label>
             <Input
-              id="name-en"
-              placeholder="Gaming, Sports..."
-              value={formData.nameEn}
+              id="name"
+              placeholder="Spor, Oyun, Müzik..."
+              value={formData.name}
               onChange={(e) =>
-                setFormData({ ...formData, nameEn: e.target.value })
+                setFormData({ ...formData, name: e.target.value })
               }
               className="placeholder:text-muted-foreground/40"
             />

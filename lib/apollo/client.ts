@@ -99,48 +99,60 @@ const errorLink = onError(
           error.message.includes("401")
       );
 
-      if (unauthorizedError && !isRefreshing) {
-        isRefreshing = true;
-        console.log(
-          "[Apollo Client] 401 detected, attempting token refresh..."
-        );
+      if (unauthorizedError) {
+        if (!isRefreshing) {
+          isRefreshing = true;
+          console.log(
+            "[Apollo Client] 401 detected, attempting token refresh..."
+          );
 
-        refreshToken()
-          .then((newToken) => {
-            console.log("[Apollo Client] Token refresh successful");
-            processQueue(null, newToken);
-            isRefreshing = false;
+          refreshToken()
+            .then((newToken) => {
+              console.log("[Apollo Client] Token refresh successful");
+              processQueue(null, newToken);
+              isRefreshing = false;
 
-            // Başarılı refresh sonrası orijinal request'i tekrar dene
-            if (forward) {
-              console.log(
-                "[Apollo Client] Retrying original request after refresh"
+              // Başarılı refresh sonrası orijinal request'i tekrar dene
+              if (forward) {
+                console.log(
+                  "[Apollo Client] Retrying original request after refresh"
+                );
+                return forward(operation);
+              }
+            })
+            .catch((refreshError) => {
+              console.error(
+                "[Apollo Client] Token refresh failed:",
+                refreshError
               );
-              return forward(operation);
-            }
-          })
-          .catch((refreshError) => {
-            console.error(
-              "[Apollo Client] Token refresh failed:",
-              refreshError
-            );
-            processQueue(refreshError, null);
-            isRefreshing = false;
+              processQueue(refreshError, null);
+              isRefreshing = false;
 
-            // Refresh başarısız olursa kullanıcıyı login sayfasına yönlendir
-            if (typeof window !== "undefined") {
-              console.log(
-                "[Apollo Client] Redirecting to login due to refresh failure"
-              );
-              window.location.href = "/login";
-            }
+              // Refresh başarısız olursa kullanıcıyı login sayfasına yönlendir
+              if (typeof window !== "undefined") {
+                console.log(
+                  "[Apollo Client] Redirecting to login due to refresh failure"
+                );
+                window.location.href = "/login";
+              }
+            });
+        } else {
+          // Already refreshing, wait for it to complete
+          return new Promise((resolve) => {
+            failedQueue.push({
+              resolve,
+              reject: () => {},
+            });
           });
+        }
       }
     }
 
     if (networkError) {
       console.error(`[Network error]: ${networkError}`);
     }
+
+    return forward(operation);
   }
 );
 

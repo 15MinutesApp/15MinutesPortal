@@ -10,12 +10,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Upload, CheckCircle2, XCircle } from "lucide-react";
-import { Interest } from "../types";
+import { Interest } from "../../types";
 
 interface AddSubInterestDialogProps {
   parentInterest: Interest;
@@ -23,6 +22,8 @@ interface AddSubInterestDialogProps {
   onUpdate?: (subInterest: Interest) => void;
   editSubInterest?: Interest;
   trigger?: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function AddSubInterestDialog({
@@ -31,8 +32,13 @@ export function AddSubInterestDialog({
   onUpdate,
   editSubInterest,
   trigger,
+  open: externalOpen,
+  onOpenChange: externalOnOpenChange,
 }: AddSubInterestDialogProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen =
+    externalOnOpenChange || ((value: boolean) => setInternalOpen(value));
   const [formData, setFormData] = useState({
     name: "",
     thumbnail: "",
@@ -106,13 +112,13 @@ export function AddSubInterestDialog({
         };
 
         if (onUpdate) {
-          onUpdate(updatedSubInterest);
+          await onUpdate(updatedSubInterest);
         }
 
         toast({
           title: "Başarılı",
           description: "Alt kategori başarıyla güncellendi.",
-          variant: "success",
+          variant: "default",
         });
       } else {
         // Add mode
@@ -127,13 +133,13 @@ export function AddSubInterestDialog({
         };
 
         if (onAdd) {
-          onAdd(newSubInterest);
+          await onAdd(newSubInterest);
         }
 
         toast({
           title: "Başarılı",
           description: "Alt kategori başarıyla eklendi.",
-          variant: "success",
+          variant: "default",
         });
       }
 
@@ -166,21 +172,6 @@ export function AddSubInterestDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger ? (
-          <div onClick={(e) => e.stopPropagation()}>{trigger}</div>
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            className="bg-gradient-to-r from-pink-500/10 to-blue-400/10 border-pink-500/30 hover:from-pink-500/20 hover:to-blue-400/20"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Alt Kategori Ekle
-          </Button>
-        )}
-      </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>

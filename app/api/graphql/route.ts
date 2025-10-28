@@ -91,6 +91,33 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Admin_refreshTokens mutation'ından token'lar geliyorsa, HTTP-only cookie olarak set et
+  if (responseData.data?.Admin_refreshTokens) {
+    const { accessToken, refreshToken } = responseData.data.Admin_refreshTokens;
+
+    if (accessToken) {
+      console.log("[GraphQL Proxy] Setting accessToken cookie from refresh");
+      response.cookies.set("accessToken", accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+      });
+    }
+
+    if (refreshToken) {
+      console.log("[GraphQL Proxy] Setting refreshToken cookie from refresh");
+      response.cookies.set("refreshToken", refreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+      });
+    }
+  }
+
   // Backend'den gelen tüm set-cookie header'larını frontend'e iletiyoruz.
   // Headers.get() sadece ilk değeri döner, tüm cookie'leri almak için getSetCookie() kullanıyoruz
   const setCookieHeaders = backendResponse.headers.getSetCookie();

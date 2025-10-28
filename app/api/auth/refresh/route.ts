@@ -1,3 +1,4 @@
+import { proxyRequestToBackend } from "@/lib/server/backend-proxy";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -5,55 +6,103 @@ export async function POST(req: NextRequest) {
     console.log("[Auth Refresh] Starting token refresh...");
 
     // Get refresh token from HTTP-only cookie
-    const refreshToken = req.cookies.get("refreshToken");
+    const refreshTokenCookie = req.cookies.get("refreshToken");
 
-    if (!refreshToken) {
-      console.log("[Auth Refresh] No refresh token found");
+    if (!refreshTokenCookie) {
+      console.log("[Auth Refresh] No refresh token found in cookies");
       return NextResponse.json({ error: "No refresh token" }, { status: 401 });
     }
 
-    // Call backend to refresh the token
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:4000";
-    const refreshResponse = await fetch(`${backendUrl}/api/auth/refresh`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${refreshToken.value}`,
+    const refreshToken = refreshTokenCookie.value;
+
+    console.log("[Auth Refresh] Refresh token found, calling GraphQL mutation");
+
+    // Call GraphQL mutation to refresh tokens
+    // The mutation needs the refresh token in variables
+    const graphqlBody = {
+      query: `
+        mutation AdminRefreshTokens($refreshToken: String!) {
+          Admin_refreshTokens(refreshToken: $refreshToken) {
+            accessToken
+            refreshToken
+          }
+        }
+      `,
+      variables: {
+        refreshToken: refreshToken,
       },
+    };
+
+    // Use the backend proxy to send the GraphQL request
+    const backendResponse = await proxyRequestToBackend(req, "graphql", {
+      method: "POST",
+      body: JSON.stringify(graphqlBody),
     });
 
-    if (!refreshResponse.ok) {
-      console.log(
-        "[Auth Refresh] Backend refresh failed:",
-        refreshResponse.status
-      );
+    console.log(
+      "[Auth Refresh] Backend response status:",
+      backendResponse.status
+    );
+
+    // Parse the response
+    const responseData = await backendResponse.json();
+
+    console.log("[Auth Refresh] Backend response data:", responseData);
+
+    // Check for errors
+    if (responseData.errors) {
+      console.error("[Auth Refresh] GraphQL errors:", responseData.errors);
       return NextResponse.json(
         { error: "Token refresh failed" },
         { status: 401 }
       );
     }
 
-    const data = await refreshResponse.json();
+    // Get the new tokens from the response
+    const refreshData = responseData.data?.Admin_refreshTokens;
 
-    if (data.accessToken) {
-      console.log("[Auth Refresh] Setting new access token");
+    if (!refreshData) {
+      console.log("[Auth Refresh] No token data in response");
+      return NextResponse.json(
+        { error: "No token data received" },
+        { status: 401 }
+      );
+    }
 
-      // Create response with new access token
+    const { accessToken, refreshToken: newRefreshToken } = refreshData;
+
+    if (accessToken && newRefreshToken) {
+      console.log("[Auth Refresh] Setting new tokens as HTTP-only cookies");
+
+      // Create response
       const response = NextResponse.json(
         {
-          success: true,
-          accessToken: data.accessToken,
+          data: {
+            Admin_refreshTokens: {
+              accessToken,
+              refreshToken: newRefreshToken,
+            },
+          },
         },
         { status: 200 }
       );
 
       // Set new access token as HTTP-only cookie
-      response.cookies.set("accessToken", data.accessToken, {
+      response.cookies.set("accessToken", accessToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
         path: "/",
         maxAge: 60 * 60 * 24 * 7, // 7 days
+      });
+
+      // Set new refresh token as HTTP-only cookie
+      response.cookies.set("refreshToken", newRefreshToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 30, // 30 days
       });
 
       return response;

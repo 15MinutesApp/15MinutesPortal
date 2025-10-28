@@ -92,8 +92,8 @@ export const ADMIN_CREATE_INTEREST_CATEGORY = gql`
       id
       name
       thumbnail
-      userCount
       isActive
+      deletedAt
     }
   }
 `;
@@ -103,13 +103,7 @@ export const ADMIN_UPDATE_INTEREST = gql`
     Admin_updateInterest(input: $input) {
       id
       name
-      thumbnail
-      userCount
       isActive
-      interestCategory {
-        id
-        name
-      }
     }
   }
 `;
@@ -119,9 +113,9 @@ export const ADMIN_UPDATE_INTEREST_CATEGORY = gql`
     Admin_updateInterestCategory(input: $input) {
       id
       name
-      thumbnail
-      userCount
       isActive
+      userCount
+      interestCount
     }
   }
 `;

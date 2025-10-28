@@ -78,15 +78,51 @@ export function AddInterestDialog({
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (e) => {
-        const result = e.target?.result as string;
-        setFormData({ ...formData, thumbnail: result });
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          const maxWidth = 200;
+          const maxHeight = 200;
+
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxWidth) {
+              height = (height / width) * maxWidth;
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = (width / height) * maxHeight;
+              height = maxHeight;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext("2d");
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.5);
+          resolve(compressedDataUrl);
+        };
+        img.src = e.target?.result as string;
       };
       reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const compressedThumbnail = await compressImage(file);
+      setFormData({ ...formData, thumbnail: compressedThumbnail });
     }
   };
 

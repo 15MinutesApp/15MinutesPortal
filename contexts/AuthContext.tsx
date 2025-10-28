@@ -1,7 +1,13 @@
 "use client";
 
 import type React from "react";
-import { createContext, useContext, useState, useEffect } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -79,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsAuthenticated(true);
   };
 
-  const refreshAccessToken = async (): Promise<boolean> => {
+  const refreshAccessToken = useCallback(async (): Promise<boolean> => {
     try {
       const response = await fetch("/api/auth/refresh", {
         method: "POST",
@@ -97,7 +103,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Token refresh error:", error);
       return false;
     }
-  };
+  }, []);
+
+  // Auto-refresh token periodically to keep user logged in
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // Refresh interval: every 30 minutes (1800000 ms)
+    // This keeps the user logged in by refreshing before expiry
+    const refreshInterval = setInterval(async () => {
+      try {
+        const success = await refreshAccessToken();
+        if (success) {
+          console.log("Token auto-refreshed successfully");
+        } else {
+          console.log("Token auto-refresh failed, user will remain logged in");
+          // Don't logout automatically, let user stay logged in
+        }
+      } catch (error) {
+        console.error("Auto-refresh error:", error);
+      }
+    }, 30 * 60 * 1000); // 30 minutes
+
+    // Cleanup interval on unmount or when auth status changes
+    return () => clearInterval(refreshInterval);
+  }, [isAuthenticated, refreshAccessToken]);
 
   const logout = async () => {
     try {

@@ -73,8 +73,14 @@ export async function proxyRequestToBackend(
   }
 
   // Content-Type genelde json olur, değilse options'tan gelenle ezilir.
+  // For FormData, we don't set content-type, let fetch set it with boundary
   if (!headers.has("content-type")) {
-    headers.set("content-type", "application/json");
+    if (options.body instanceof FormData) {
+      // Don't set content-type for FormData - let fetch set it with boundary
+      console.log("[Backend Proxy] FormData detected, skipping content-type");
+    } else {
+      headers.set("content-type", "application/json");
+    }
   }
 
   const backendUrl = process.env.BACKEND_API_URL

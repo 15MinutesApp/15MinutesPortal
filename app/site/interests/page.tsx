@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/accordion";
 import {
   ADMIN_INTEREST_CATEGORIES,
-  ADMIN_INTERESTS,
   ADMIN_UPDATE_INTEREST_STATUS,
   ADMIN_CREATE_INTEREST,
   ADMIN_CREATE_INTEREST_CATEGORY,
@@ -62,19 +61,6 @@ interface GraphQLResponse {
   Admin_interestCategories: GraphQLInterestCategory[];
 }
 
-interface GraphQLInterestResponse {
-  Admin_interests: {
-    id: string;
-    name: string;
-    thumbnail?: string;
-    userCount: number;
-    interestCategory: {
-      id: string;
-      name: string;
-    };
-  }[];
-}
-
 export default function InterestsPage() {
   const { isAuthenticated, isLoading } = useAuth();
   const { toast } = useToast();
@@ -100,6 +86,7 @@ export default function InterestsPage() {
     subId: string;
   } | null>(null);
   const [addMainDialogOpen, setAddMainDialogOpen] = React.useState(false);
+  const [openCategories, setOpenCategories] = React.useState<string[]>([]);
 
   const {
     data: graphqlData,
@@ -108,13 +95,9 @@ export default function InterestsPage() {
     refetch,
   } = useQuery<GraphQLResponse>(ADMIN_INTEREST_CATEGORIES);
 
-  const {
-    data: interestsData,
-    loading: interestsLoading,
-    error: interestsError,
-  } = useQuery<GraphQLInterestResponse>(ADMIN_INTERESTS);
-
-  const [updateInterestStatus] = useMutation(ADMIN_UPDATE_INTEREST_STATUS);
+  const [updateInterestStatus] = useMutation(ADMIN_UPDATE_INTEREST_STATUS, {
+    refetchQueries: [{ query: ADMIN_INTEREST_CATEGORIES }],
+  });
   const [createInterest] = useMutation(ADMIN_CREATE_INTEREST, {
     refetchQueries: [{ query: ADMIN_INTEREST_CATEGORIES }],
   });
@@ -146,19 +129,10 @@ export default function InterestsPage() {
   }, [interests, searchTerm]);
 
   useEffect(() => {
-    if (
-      graphqlData?.Admin_interestCategories &&
-      interestsData?.Admin_interests
-    ) {
+    if (graphqlData?.Admin_interestCategories) {
       const transformedInterests: Interest[] =
         graphqlData.Admin_interestCategories.map(
           (category: GraphQLInterestCategory) => {
-            const categoryInterests = (
-              interestsData?.Admin_interests || []
-            ).filter(
-              (interest: any) => interest.interestCategory?.id === category.id
-            );
-
             return {
               id: category.id,
               name: category.name,
@@ -166,7 +140,7 @@ export default function InterestsPage() {
               userCount: category.userCount,
               isActive: true,
               interestCategory: { id: category.id, name: category.name },
-              subInterests: categoryInterests.map((interest: any) => ({
+              subInterests: (category.interests || []).map((interest) => ({
                 id: interest.id,
                 name: interest.name,
                 thumbnail: interest.thumbnail,
@@ -179,7 +153,7 @@ export default function InterestsPage() {
           }
         );
       setInterests(transformedInterests);
-    } else if (!graphqlLoading && !interestsLoading && error) {
+    } else if (!graphqlLoading && error) {
       const errorMessage = error?.message || error?.toString() || "";
       const isAuthError =
         errorMessage.includes("Admin authentication required") ||
@@ -188,25 +162,8 @@ export default function InterestsPage() {
       if (isAuthError) {
         router.push("/login");
       }
-    } else if (
-      !graphqlLoading &&
-      !interestsLoading &&
-      !error &&
-      !interestsError
-    ) {
-      const savedInterests = localStorage.getItem("interests");
-      if (savedInterests) setInterests(JSON.parse(savedInterests));
-      else setInterests([]);
     }
-  }, [
-    graphqlData,
-    interestsData,
-    graphqlLoading,
-    interestsLoading,
-    error,
-    interestsError,
-    router,
-  ]);
+  }, [graphqlData, graphqlLoading, error, router]);
 
   const handleAddInterest = async (newInterest: Interest) => {
     if (!isAuthenticated) {
@@ -214,43 +171,109 @@ export default function InterestsPage() {
       return;
     }
 
-    toast({
-      title: "Geçici Olarak Devre Dışı",
-      description:
-        "Kategori ekleme işlemi backend sorunu nedeniyle şu anda kullanılamıyor. Lütfen backend geliştiricisine bildirin.",
-      variant: "destructive",
-    });
-
-    // TODO: Backend sorunu çözülünce bu kodu aktif et
-    /*
     try {
+      if (!newInterest.name) {
+        toast({
+          title: "Hata",
+          description: "Kategori adı boş olamaz",
+          variant: "destructive",
+        });
+        return;
+      }
+
       const inputData = {
         name: newInterest.name,
       };
-      
+
+      console.log("Creating category with input:", inputData);
+
       const result = await createInterestCategory({
         variables: { input: inputData },
       });
 
-      toast({
-        title: "Başarılı",
-        description: "Kategori başarıyla oluşturuldu",
-        variant: "default",
-      });
+      console.log("Category creation result:", result);
+
+      // Upload thumbnail if provided
+      if (
+        newInterest.thumbnail &&
+        result.data &&
+        typeof result.data === "object" &&
+        "Admin_createInterestCategory" in result.data
+      ) {
+        const categoryData = result.data as any;
+        const categoryId = categoryData.Admin_createInterestCategory?.id;
+        if (categoryId) {
+          try {
+            await uploadThumbnail(
+              categoryId,
+              "interestCategory",
+              newInterest.thumbnail
+            );
+            console.log("Thumbnail upload completed successfully");
+          } catch (uploadError) {
+            console.error("Thumbnail upload failed:", uploadError);
+          }
+        }
+      }
+
+      // Force refetch to get latest data with thumbnails
+      await refetch();
     } catch (error: any) {
       const errorDetails = error?.graphQLErrors || error?.errors || [];
       const firstError = errorDetails[0];
       const specificError = firstError?.extensions?.originalError || firstError;
       const errorMessage =
         specificError?.message || error?.message || String(error);
-      
+
       toast({
         title: "Hata",
         description: `Kategori oluşturulurken bir hata oluştu: ${errorMessage}`,
         variant: "destructive",
       });
     }
-    */
+  };
+
+  const uploadThumbnail = async (
+    entityId: string,
+    collection: "interest" | "interestCategory",
+    base64Image: string
+  ) => {
+    // Convert base64 to blob
+    const base64Data = base64Image.split(",")[1];
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: "image/jpeg" });
+
+    // Create FormData
+    const formData = new FormData();
+    formData.append("file", blob, "thumbnail.jpg");
+    formData.append("collection", collection);
+    formData.append("entityId", entityId);
+
+    console.log("[Upload] Uploading thumbnail:", {
+      entityId,
+      collection,
+      fileSize: blob.size,
+    });
+
+    // Upload to backend via Next.js API route
+    const response = await fetch("/api/upload/thumbnail", {
+      method: "POST",
+      body: formData,
+      credentials: "include",
+    });
+
+    const responseText = await response.text();
+    console.log("[Upload] Response status:", response.status);
+    console.log("[Upload] Response:", responseText);
+
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.status} - ${responseText}`);
+    }
   };
 
   const handleUpdateInterest = async (updatedInterest: Interest) => {
@@ -265,16 +288,44 @@ export default function InterestsPage() {
         name: updatedInterest.name,
         isActive: updatedInterest.isActive,
       };
+
       await updateInterestCategory({
         variables: {
           input: updateInput,
         },
       });
+
+      // Upload thumbnail if provided
+      if (
+        updatedInterest.thumbnail &&
+        updatedInterest.thumbnail.startsWith("data:image")
+      ) {
+        console.log(
+          "Uploading thumbnail for updated category:",
+          updatedInterest.id
+        );
+        try {
+          await uploadThumbnail(
+            updatedInterest.id,
+            "interestCategory",
+            updatedInterest.thumbnail
+          );
+          console.log("Category thumbnail upload completed successfully");
+        } catch (uploadError) {
+          console.error("Category thumbnail upload failed:", uploadError);
+        }
+      } else {
+        console.log("No new thumbnail to upload for category");
+      }
+
       toast({
         title: "Başarılı",
         description: "Kategori başarıyla güncellendi",
         variant: "default",
       });
+
+      // Force refetch to update UI
+      await refetch();
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -304,19 +355,67 @@ export default function InterestsPage() {
         name: subInterest.name,
         interestCategoryId: parentId,
       };
-      await createInterest({
+      console.log("Creating sub interest with input:", inputData);
+      console.log("Sub interest has thumbnail:", !!subInterest.thumbnail);
+
+      const result = await createInterest({
         variables: {
           input: inputData,
         },
       });
+
+      console.log("Sub interest creation result:", result);
+
+      // Upload thumbnail if provided
+      if (subInterest.thumbnail && result.data) {
+        const interestData = result.data as any;
+        const interestId = interestData?.Admin_createInterest?.id;
+        console.log("Uploading thumbnail for interest ID:", interestId);
+
+        if (interestId) {
+          try {
+            await uploadThumbnail(
+              interestId,
+              "interest",
+              subInterest.thumbnail
+            );
+            console.log("Thumbnail upload completed successfully");
+          } catch (uploadError) {
+            console.error("Thumbnail upload failed:", uploadError);
+            toast({
+              title: "Uyarı",
+              description:
+                "Alt kategori oluşturuldu ancak thumbnail yüklenemedi",
+              variant: "default",
+            });
+          }
+        } else {
+          console.warn("No interest ID returned from creation");
+        }
+      } else {
+        console.log("No thumbnail to upload for sub interest");
+      }
+
       toast({
         title: "Başarılı",
         description: "Alt kategori başarıyla oluşturuldu",
         variant: "default",
       });
-    } catch (error) {
+
+      // Force refetch to get latest data
+      await refetch();
+
+      // Open the parent category accordion
+      if (!openCategories.includes(parentId)) {
+        setOpenCategories([...openCategories, parentId]);
+      }
+    } catch (error: any) {
+      const errorDetails = error?.graphQLErrors || error?.errors || [];
+      const firstError = errorDetails[0];
+      const specificError = firstError?.extensions?.originalError || firstError;
       const errorMessage =
-        error instanceof Error ? error.message : String(error);
+        specificError?.message || error?.message || String(error);
+
       if (errorMessage.includes("Admin authentication required")) {
         alert("Admin yetkisi gerekli. Lütfen giriş yapın.");
       } else {
@@ -345,16 +444,44 @@ export default function InterestsPage() {
         interestCategoryId: parentId,
         isActive: updatedSubInterest.isActive,
       };
+
       await updateInterest({
         variables: {
           input: updateInput,
         },
       });
+
+      // Upload thumbnail if provided
+      if (
+        updatedSubInterest.thumbnail &&
+        updatedSubInterest.thumbnail.startsWith("data:image")
+      ) {
+        console.log(
+          "Uploading thumbnail for updated sub interest:",
+          updatedSubInterest.id
+        );
+        try {
+          await uploadThumbnail(
+            updatedSubInterest.id,
+            "interest",
+            updatedSubInterest.thumbnail
+          );
+          console.log("Sub interest thumbnail upload completed successfully");
+        } catch (uploadError) {
+          console.error("Sub interest thumbnail upload failed:", uploadError);
+        }
+      } else {
+        console.log("No new thumbnail to upload for sub interest");
+      }
+
       toast({
         title: "Başarılı",
         description: "Alt kategori başarıyla güncellendi",
         variant: "default",
       });
+
+      // Force refetch to update UI
+      await refetch();
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
@@ -570,7 +697,12 @@ export default function InterestsPage() {
 
         <div className="px-10">
           {/* FULL PEMBE ZEMİN + AYNI HİZALAMA */}
-          <Accordion type="multiple" className="rounded-xl overflow-hidden">
+          <Accordion
+            type="multiple"
+            className="rounded-xl overflow-hidden"
+            value={openCategories}
+            onValueChange={setOpenCategories}
+          >
             {filteredData.map((interest) => (
               <AccordionItem
                 key={interest.id}
@@ -685,11 +817,14 @@ export default function InterestsPage() {
 
                 {/* ALT KATEGORİ LİSTESİ */}
                 <AccordionContent className="p-0">
-                  {(interest.subInterests || []).map((sub) => (
+                  {(interest.subInterests || []).map((sub, index) => (
                     <div
                       key={sub.id}
-                      className="w-full bg-blue-500/10 hover:bg-blue-500/15 transition-colors pl-5"
+                      className="w-full bg-blue-500/10 hover:bg-blue-500/15 transition-colors pl-5 relative"
                     >
+                      {index > 0 && (
+                        <div className="absolute top-0 left-[0.75rem] right-[calc(7%+0.25rem)] h-[1px] bg-blue-500/20" />
+                      )}
                       <div className="grid grid-cols-12 items-center gap-3 px-3 py-2">
                         {/* Sol: Switch + ikon + ad (AYNI HİZA) */}
                         <div className="col-span-6 flex items-center gap-3">
@@ -879,74 +1014,91 @@ export default function InterestsPage() {
       })()}
 
       {/* Delete Confirmation Dialog */}
-      {deleteConfirmOpen && (
-        <Dialog open={true} onOpenChange={() => setDeleteConfirmOpen(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Kategoriyi Sil</DialogTitle>
-              <DialogDescription>
-                Bu ana kategoriyi ve tüm alt kategorilerini silmek
-                istediğinizden emin misiniz?
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setDeleteConfirmOpen(null)}
-                type="button"
-              >
-                İptal
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  handleDeleteInterest(deleteConfirmOpen as string);
-                  setDeleteConfirmOpen(null);
-                }}
-                type="button"
-              >
-                Sil
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+      {deleteConfirmOpen &&
+        (() => {
+          const interestToDelete = interests.find(
+            (i) => i.id === deleteConfirmOpen
+          );
+          return (
+            <Dialog open={true} onOpenChange={() => setDeleteConfirmOpen(null)}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Kategoriyi Sil</DialogTitle>
+                  <DialogDescription>
+                    <strong>"{interestToDelete?.name}"</strong> ana kategoriyi
+                    ve tüm alt kategorilerini silmek istediğinizden emin
+                    misiniz?
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setDeleteConfirmOpen(null)}
+                    type="button"
+                  >
+                    İptal
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      handleDeleteInterest(deleteConfirmOpen as string);
+                      setDeleteConfirmOpen(null);
+                    }}
+                    type="button"
+                  >
+                    Sil
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          );
+        })()}
 
       {/* Delete Sub Interest Confirmation Dialog */}
-      {deleteSubConfirmOpen && (
-        <Dialog open={true} onOpenChange={() => setDeleteSubConfirmOpen(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Alt Kategoriyi Sil</DialogTitle>
-              <DialogDescription>
-                Bu alt kategoriyi silmek istediğinizden emin misiniz?
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setDeleteSubConfirmOpen(null)}
-                type="button"
-              >
-                İptal
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  handleDeleteSubInterest(
-                    deleteSubConfirmOpen!.parentId,
-                    deleteSubConfirmOpen!.subId
-                  );
-                  setDeleteSubConfirmOpen(null);
-                }}
-                type="button"
-              >
-                Sil
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
+      {deleteSubConfirmOpen &&
+        (() => {
+          const subInterestToDelete = interests
+            .flatMap((i) => i.subInterests || [])
+            .find((s) => s.id === deleteSubConfirmOpen.subId);
+          return (
+            <Dialog
+              open={true}
+              onOpenChange={() => setDeleteSubConfirmOpen(null)}
+            >
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Alt Kategoriyi Sil</DialogTitle>
+                  <DialogDescription>
+                    <strong>"{subInterestToDelete?.name}"</strong> alt
+                    kategoriyi silmek istediğinizden emin misiniz?
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setDeleteSubConfirmOpen(null)}
+                    type="button"
+                  >
+                    İptal
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      handleDeleteSubInterest(
+                        deleteSubConfirmOpen!.parentId,
+                        deleteSubConfirmOpen!.subId
+                      );
+                      setDeleteSubConfirmOpen(null);
+                    }}
+                    type="button"
+                  >
+                    Sil
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          );
+        })()}
     </div>
   );
 }

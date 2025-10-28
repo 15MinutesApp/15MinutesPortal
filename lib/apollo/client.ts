@@ -31,37 +31,24 @@ const processQueue = (error: any, token: string | null = null) => {
 // Refresh token fonksiyonu
 const refreshToken = async (): Promise<string | null> => {
   try {
-    const response = await fetch("/api/graphql", {
+    const response = await fetch("/api/auth/refresh", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
       credentials: "include", // HTTP-only cookie'leri dahil et
-      body: JSON.stringify({
-        query: `
-          mutation AdminRefreshTokens($refreshToken: String!) {
-            Admin_refreshTokens(refreshToken: $refreshToken) {
-              accessToken
-              refreshToken
-            }
-          }
-        `,
-        variables: {
-          refreshToken: "dummy", // Backend x-refresh-token header'ından alacak
-        },
-      }),
     });
 
     const result = await response.json();
 
-    if (result.errors) {
-      throw new Error(result.errors[0].message);
+    if (response.status !== 200 || result.error) {
+      throw new Error(result.error || "Token refresh failed");
     }
 
     // Yeni token'lar cookie'ye otomatik olarak set edilecek
-    return result.data.Admin_refreshTokens.accessToken;
+    return result.data?.Admin_refreshTokens?.accessToken || null;
   } catch (error) {
-    console.error("Token refresh failed:", error);
+    console.error("[Apollo Client] Token refresh failed:", error);
     return null;
   }
 };

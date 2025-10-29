@@ -17,6 +17,8 @@ export async function POST(req: NextRequest) {
 
     console.log("[Auth Refresh] Refresh token found, calling GraphQL mutation");
 
+    console.log("refresh token deneniyor ", refreshToken);
+
     // Call GraphQL mutation to refresh tokens
     // The mutation needs the refresh token in variables
     const graphqlBody = {

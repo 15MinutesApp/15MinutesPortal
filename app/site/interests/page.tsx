@@ -153,16 +153,9 @@ export default function InterestsPage() {
           }
         );
       setInterests(transformedInterests);
-    } else if (!graphqlLoading && error) {
-      const errorMessage = error?.message || error?.toString() || "";
-      const isAuthError =
-        errorMessage.includes("Admin authentication required") ||
-        errorMessage.includes("Unauthorized") ||
-        errorMessage.includes("401");
-      if (isAuthError) {
-        router.push("/login");
-      }
     }
+    // Note: Error handling is done by Apollo Client errorLink for refresh token mechanism
+    // Don't manually handle auth errors here to allow refresh token flow to work
   }, [graphqlData, graphqlLoading, error, router]);
 
   const handleAddInterest = async (newInterest: Interest) => {

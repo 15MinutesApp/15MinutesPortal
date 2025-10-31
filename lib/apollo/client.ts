@@ -1,10 +1,5 @@
-import {
-  ApolloClient,
-  InMemoryCache,
-  createHttpLink,
-  from,
-  gql,
-} from "@apollo/client";
+import { ApolloClient, InMemoryCache, from, gql } from "@apollo/client";
+import { HttpLink } from "@apollo/client/link/http";
 import { onError } from "@apollo/client/link/error";
 import { Observable } from "@apollo/client/utilities";
 
@@ -110,7 +105,7 @@ const handleLogout = async () => {
 };
 
 // HTTP Link - proxy endpoint kullanıyoruz, credentials: 'include' ile HTTP-only cookie'leri dahil et
-const httpLink = createHttpLink({
+const httpLink = new HttpLink({
   uri: "/api/graphql",
   credentials: "include", // HTTP-only cookie'leri dahil et
 });
@@ -134,13 +129,10 @@ const isUnauthorizedError = (error: any): boolean => {
 
 // Error Link - hataları yakalar ve token refresh işlemi yapar
 const errorLink = onError(
-  ({ graphQLErrors, networkError, operation, forward, response }: any) => {
-    console.log("[Apollo Debug] ========== ErrorLink triggered ==========");
-    console.log("[Apollo Debug] graphQLErrors:", graphQLErrors);
+  ({ graphQLErrors, networkError, operation, forward }: any) => {
+    console.log("[Apollo Debug] ErrorLink triggered (fallback)");
     console.log("[Apollo Debug] networkError:", networkError);
     console.log("[Apollo Debug] operation:", operation?.operationName);
-    console.log("[Apollo Debug] response:", response);
-    console.log("[Apollo Debug] response?.errors:", response?.errors);
 
     // Collect all errors from different sources
     let allErrors: any[] = [];
@@ -150,25 +142,7 @@ const errorLink = onError(
       allErrors = [...graphQLErrors];
       graphQLErrors.forEach(({ message, locations, path, extensions }: any) => {
         console.error(
-          `[Apollo Debug] GraphQL error: Message: ${message}, Location: ${JSON.stringify(
-            locations
-          )}, Path: ${path}, Extensions: ${JSON.stringify(extensions)}`
-        );
-      });
-    }
-
-    // Get errors from response.errors
-    if (response?.errors) {
-      allErrors = [...allErrors, ...response.errors];
-      response.errors.forEach((error: any, index: number) => {
-        console.log(`[Apollo Debug] response.errors[${index}]:`, error);
-        console.log(
-          `[Apollo Debug] response.errors[${index}].message:`,
-          error?.message
-        );
-        console.log(
-          `[Apollo Debug] response.errors[${index}].extensions:`,
-          error?.extensions
+          `[Apollo Debug] GraphQL error: Message: ${message}, Code: ${extensions?.code}, StatusCode: ${extensions?.originalError?.statusCode}`
         );
       });
     }

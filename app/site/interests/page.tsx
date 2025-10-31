@@ -668,8 +668,8 @@ export default function InterestsPage() {
       </header>
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between px-10">
-          <div className="relative flex-1 max-w-sm">
+        <div className="flex items-center justify-end gap-3 px-10">
+          <div className="relative max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-pink-400" />
             <Input
               placeholder="Kategori ara..."

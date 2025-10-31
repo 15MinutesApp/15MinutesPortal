@@ -36,10 +36,26 @@ export function middleware(request: NextRequest) {
   console.log("[Middleware] Checking cookies for path:", pathname);
   console.log("[Middleware] Access token exists:", !!accessToken);
   console.log("[Middleware] Refresh token exists:", !!refreshToken);
+  console.log(
+    "[Middleware] Access token value (first 20 chars):",
+    accessToken?.value?.substring(0, 20) || "empty"
+  );
+  console.log(
+    "[Middleware] Refresh token value (first 20 chars):",
+    refreshToken?.value?.substring(0, 20) || "empty"
+  );
 
-  // Token yoksa login'e yönlendir
-  if (!accessToken && !refreshToken) {
-    console.log("[Middleware] No tokens found, redirecting to login");
+  // Token yoksa veya boş string ise login'e yönlendir
+  // Cookie'ler silindiğinde maxAge: 0 ile set edilir, bu durumda value boş string olabilir
+  const hasValidAccessToken =
+    accessToken && accessToken.value && accessToken.value.trim() !== "";
+  const hasValidRefreshToken =
+    refreshToken && refreshToken.value && refreshToken.value.trim() !== "";
+
+  if (!hasValidAccessToken && !hasValidRefreshToken) {
+    console.log(
+      "[Middleware] No valid tokens found, redirecting to login"
+    );
     const loginUrl = new URL("/login", request.url);
     return NextResponse.redirect(loginUrl);
   }

@@ -3,38 +3,51 @@ import {
   InMemoryCache,
   createHttpLink,
   from,
+  gql,
 } from "@apollo/client";
-import { setContext } from "@apollo/client/link/context";
 import { onError } from "@apollo/client/link/error";
-import { gql } from "@apollo/client";
 import { Observable } from "@apollo/client/utilities";
+
+// Load error messages for better debugging (Apollo Client 3.8+)
+if (typeof window !== "undefined" && process.env.NODE_ENV !== "production") {
+  import("@apollo/client/dev").then(
+    ({ loadDevMessages, loadErrorMessages }) => {
+      loadDevMessages();
+      loadErrorMessages();
+    }
+  );
+}
 // import { tokenStorage } from "@/lib/auth/authService";
 
 // HTTP-only cookie'ler için refresh token mekanizması
 let isRefreshing = false;
-let failedQueue: Array<{
-  resolve: (value?: any) => void;
-  reject: (error?: any) => void;
-}> = [];
+let refreshPromise: Promise<void> | null = null;
 
-const processQueue = (error: any = null) => {
-  console.log(
-    "[Apollo Debug] Processing queue, queue length:",
-    failedQueue.length,
-    "error:",
-    error
-  );
-  failedQueue.forEach(({ resolve, reject }) => {
-    if (error) {
-      console.log("[Apollo Debug] Rejecting queued request due to error");
-      reject(error);
-    } else {
-      console.log("[Apollo Debug] Resolving queued request");
-      resolve();
-    }
-  });
+const ensureRefreshPromise = () => {
+  if (!refreshPromise) {
+    console.log("[Apollo Debug] Creating new refresh promise");
+    isRefreshing = true;
+    refreshPromise = refreshToken()
+      .then((refreshSuccess) => {
+        console.log("[Apollo Debug] refreshToken returned:", refreshSuccess);
+        if (!refreshSuccess) {
+          throw new Error("Token refresh failed");
+        }
+      })
+      .catch((error) => {
+        console.error("[Apollo Debug] Refresh promise rejected:", error);
+        throw error;
+      })
+      .finally(() => {
+        console.log("[Apollo Debug] Clearing refresh promise");
+        isRefreshing = false;
+        refreshPromise = null;
+      });
+  } else {
+    console.log("[Apollo Debug] Reusing existing refresh promise");
+  }
 
-  failedQueue = [];
+  return refreshPromise;
 };
 
 // Refresh token fonksiyonu
@@ -102,14 +115,22 @@ const httpLink = createHttpLink({
   credentials: "include", // HTTP-only cookie'leri dahil et
 });
 
-// Auth Link - HTTP-only cookie'ler otomatik olarak gönderilir
-const authLink = setContext((_, { headers }) => {
-  return {
-    headers: {
-      ...headers,
-    },
-  };
-});
+// Helper function to check if error is unauthorized
+const isUnauthorizedError = (error: any): boolean => {
+  if (!error) return false;
+
+  const message = error.message || "";
+  const extensions = error.extensions || {};
+
+  return (
+    message.includes("Admin authentication required") ||
+    message.includes("Unauthorized") ||
+    message.includes("401") ||
+    extensions.code === "UNAUTHENTICATED" ||
+    extensions.code === "UNAUTHORIZED" ||
+    extensions.originalError?.statusCode === 401
+  );
+};
 
 // Error Link - hataları yakalar ve token refresh işlemi yapar
 const errorLink = onError(
@@ -119,8 +140,14 @@ const errorLink = onError(
     console.log("[Apollo Debug] networkError:", networkError);
     console.log("[Apollo Debug] operation:", operation?.operationName);
     console.log("[Apollo Debug] response:", response);
+    console.log("[Apollo Debug] response?.errors:", response?.errors);
 
+    // Collect all errors from different sources
+    let allErrors: any[] = [];
+
+    // Get errors from graphQLErrors
     if (graphQLErrors) {
+      allErrors = [...graphQLErrors];
       graphQLErrors.forEach(({ message, locations, path, extensions }: any) => {
         console.error(
           `[Apollo Debug] GraphQL error: Message: ${message}, Location: ${JSON.stringify(
@@ -128,144 +155,131 @@ const errorLink = onError(
           )}, Path: ${path}, Extensions: ${JSON.stringify(extensions)}`
         );
       });
+    }
 
-      // 401 Unauthorized hatası kontrolü
-      const unauthorizedError = graphQLErrors.find(
-        (error: any) =>
-          error.message?.includes("Admin authentication required") ||
-          error.message?.includes("Unauthorized") ||
-          error.message?.includes("401") ||
-          error.extensions?.code === "UNAUTHENTICATED" ||
-          error.extensions?.originalError?.statusCode === 401
+    // Get errors from response.errors
+    if (response?.errors) {
+      allErrors = [...allErrors, ...response.errors];
+      response.errors.forEach((error: any, index: number) => {
+        console.log(`[Apollo Debug] response.errors[${index}]:`, error);
+        console.log(
+          `[Apollo Debug] response.errors[${index}].message:`,
+          error?.message
+        );
+        console.log(
+          `[Apollo Debug] response.errors[${index}].extensions:`,
+          error?.extensions
+        );
+      });
+    }
+
+    // Get errors from networkError.result.errors
+    if ((networkError as any)?.result?.errors) {
+      allErrors = [...allErrors, ...(networkError as any).result.errors];
+      (networkError as any).result.errors.forEach(
+        (error: any, index: number) => {
+          console.log(
+            `[Apollo Debug] networkError.result.errors[${index}]:`,
+            error
+          );
+          console.log(
+            `[Apollo Debug] networkError.result.errors[${index}].message:`,
+            error?.message
+          );
+        }
       );
+    }
+
+    // Check for logout required error (refresh token invalid)
+    const logoutRequiredError = allErrors.find(
+      (error: any) =>
+        error?.extensions?.logoutRequired === true ||
+        (error?.extensions?.code === "UNAUTHENTICATED" &&
+          error?.message?.includes("Session expired"))
+    );
+
+    if (logoutRequiredError) {
+      console.log(
+        "[Apollo Debug] Logout required error detected, logging out and redirecting..."
+      );
+      handleLogout();
+      // Return an Observable that immediately errors
+      return new Observable((observer) => {
+        observer.error(new Error("Session expired. Please login again."));
+      });
+    }
+
+    // Check for unauthorized error in all error sources
+    const unauthorizedError = allErrors.find(isUnauthorizedError);
+
+    console.log("[Apollo Debug] unauthorizedError found:", !!unauthorizedError);
+    console.log("[Apollo Debug] isRefreshing:", isRefreshing);
+
+    if (unauthorizedError) {
+      // Check if this is the refresh endpoint itself
+      if (
+        operation?.operationName === "AdminRefreshTokens" ||
+        operation?.query?.definitions?.[0]?.name?.value === "AdminRefreshTokens"
+      ) {
+        console.log(
+          "[Apollo Debug] Refresh token endpoint returned 401 - refresh token is invalid, logging out"
+        );
+        handleLogout();
+        // Return an Observable that immediately errors
+        return new Observable((observer) => {
+          observer.error(new Error("Refresh token is invalid"));
+        });
+      }
 
       console.log(
-        "[Apollo Debug] unauthorizedError found:",
-        !!unauthorizedError
+        "[Apollo Debug] Triggering refresh flow for unauthorized error"
       );
-      console.log("[Apollo Debug] isRefreshing:", isRefreshing);
+      return new Observable((observer) => {
+        let subscription: any = null;
 
-      if (unauthorizedError) {
-        // Check if this is the refresh endpoint itself
-        if (
-          operation?.operationName === "AdminRefreshTokens" ||
-          operation?.query?.definitions?.[0]?.name?.value ===
-            "AdminRefreshTokens"
-        ) {
-          console.log(
-            "[Apollo Debug] Refresh token endpoint returned 401 - refresh token is invalid, logging out"
-          );
-          handleLogout();
-          // Return an Observable that immediately errors
-          return new Observable((observer) => {
-            observer.error(new Error("Refresh token is invalid"));
-          });
-        }
-
-        if (!isRefreshing) {
-          isRefreshing = true;
-          console.log("[Apollo Debug] Starting refresh process");
-
-          // Return an Observable that handles the refresh and retry
-          return new Observable((observer) => {
-            let subscription: any = null;
-            refreshToken()
-              .then((refreshSuccess) => {
-                console.log(
-                  "[Apollo Debug] refreshToken returned:",
-                  refreshSuccess
-                );
-                isRefreshing = false;
-
-                if (refreshSuccess) {
-                  console.log(
-                    "[Apollo Debug] Token refresh successful, processing queue and retrying request"
-                  );
-                  processQueue(null);
-
-                  // Retry the original request
-                  console.log(
-                    "[Apollo Debug] Retrying original request:",
-                    operation?.operationName
-                  );
-                  subscription = forward(operation).subscribe({
-                    next: (value: any) => {
-                      console.log("[Apollo Debug] Retry request succeeded");
-                      observer.next(value);
-                    },
-                    error: (error: any) => {
-                      console.error(
-                        "[Apollo Debug] Retry request failed:",
-                        error
-                      );
-                      observer.error(error);
-                    },
-                    complete: () => {
-                      console.log("[Apollo Debug] Retry request completed");
-                      observer.complete();
-                    },
-                  });
-                } else {
-                  console.log(
-                    "[Apollo Debug] Token refresh failed, logging out"
-                  );
-                  processQueue(new Error("Token refresh failed"));
-
-                  handleLogout();
-                  observer.error(new Error("Token refresh failed"));
-                }
+        ensureRefreshPromise()
+          .then(
+            () =>
+              new Promise((resolve) => {
+                // Allow browser to apply Set-Cookie before retry
+                setTimeout(resolve, 50);
               })
-              .catch((refreshError) => {
-                console.error(
-                  "[Apollo Debug] Token refresh failed with exception:",
-                  refreshError
-                );
-                isRefreshing = false;
-                processQueue(refreshError);
-
-                handleLogout();
-                observer.error(refreshError);
-              });
-
-            // Return cleanup function
-            return () => {
-              if (subscription) {
-                subscription.unsubscribe();
-              }
-            };
-          });
-        } else {
-          // Already refreshing, queue this request
-          console.log(
-            "[Apollo Debug] Already refreshing, queueing this request. Queue length:",
-            failedQueue.length
-          );
-          return new Observable((observer) => {
-            let subscription: any = null;
-            failedQueue.push({
-              resolve: () => {
-                console.log("[Apollo Debug] Queued request being retried");
-                subscription = forward(operation).subscribe({
-                  next: (value: any) => observer.next(value),
-                  error: (error: any) => observer.error(error),
-                  complete: () => observer.complete(),
-                });
+          )
+          .then(() => {
+            console.log(
+              "[Apollo Debug] Refresh completed, retrying original request:",
+              operation?.operationName
+            );
+            subscription = forward(operation).subscribe({
+              next: (value: any) => {
+                console.log("[Apollo Debug] Retry request succeeded");
+                observer.next(value);
               },
-              reject: (error: any) => {
-                console.error("[Apollo Debug] Queued request rejected:", error);
+              error: (error: any) => {
+                console.error("[Apollo Debug] Retry request failed:", error);
                 observer.error(error);
               },
+              complete: () => {
+                console.log("[Apollo Debug] Retry request completed");
+                observer.complete();
+              },
             });
-
-            // Return cleanup function
-            return () => {
-              if (subscription) {
-                subscription.unsubscribe();
-              }
-            };
+          })
+          .catch((refreshError) => {
+            console.error(
+              "[Apollo Debug] Refresh promise failed, logging out:",
+              refreshError
+            );
+            handleLogout();
+            observer.error(refreshError);
           });
-        }
-      }
+
+        return () => {
+          if (subscription) {
+            subscription.unsubscribe();
+          }
+        };
+      });
     }
 
     if (networkError) {
@@ -277,57 +291,36 @@ const errorLink = onError(
       ) {
         console.log("[Apollo Debug] Network 401 error detected");
         // Same handling as GraphQL 401 error
-        if (!isRefreshing) {
-          isRefreshing = true;
-          return new Observable((observer) => {
-            let subscription: any = null;
-            refreshToken()
-              .then((refreshSuccess) => {
-                isRefreshing = false;
-                if (refreshSuccess) {
-                  processQueue(null);
-                  subscription = forward(operation).subscribe(observer);
-                } else {
-                  processQueue(new Error("Token refresh failed"));
-                  handleLogout();
-                  observer.error(networkError);
-                }
-              })
-              .catch((refreshError) => {
-                isRefreshing = false;
-                processQueue(refreshError);
-                handleLogout();
-                observer.error(refreshError);
-              });
+        console.log("[Apollo Debug] Triggering refresh flow for network 401");
+        return new Observable((observer) => {
+          let subscription: any = null;
 
-            // Return cleanup function
-            return () => {
-              if (subscription) {
-                subscription.unsubscribe();
-              }
-            };
-          });
-        } else {
-          // Already refreshing, queue this request
-          return new Observable((observer) => {
-            let subscription: any = null;
-            failedQueue.push({
-              resolve: () => {
-                subscription = forward(operation).subscribe(observer);
-              },
-              reject: (error: any) => {
-                observer.error(error);
-              },
+          ensureRefreshPromise()
+            .then(
+              () =>
+                new Promise((resolve) => {
+                  // Allow browser to apply Set-Cookie before retry
+                  setTimeout(resolve, 50);
+                })
+            )
+            .then(() => {
+              subscription = forward(operation).subscribe(observer);
+            })
+            .catch((refreshError) => {
+              console.error(
+                "[Apollo Debug] Refresh promise failed during network 401:",
+                refreshError
+              );
+              handleLogout();
+              observer.error(refreshError);
             });
 
-            // Return cleanup function
-            return () => {
-              if (subscription) {
-                subscription.unsubscribe();
-              }
-            };
-          });
-        }
+          return () => {
+            if (subscription) {
+              subscription.unsubscribe();
+            }
+          };
+        });
       }
     }
 
@@ -339,14 +332,14 @@ const errorLink = onError(
 
 // Apollo Client oluştur
 export const apolloClient = new ApolloClient({
-  link: from([errorLink, authLink, httpLink]),
+  link: from([errorLink, httpLink]),
   cache: new InMemoryCache(),
   defaultOptions: {
     watchQuery: {
-      errorPolicy: "all", // Keep "all" so errors are returned in data, but errorLink still handles them
+      errorPolicy: "none",
     },
     query: {
-      errorPolicy: "all", // Keep "all" so errors are returned in data, but errorLink still handles them
+      errorPolicy: "none",
     },
   },
 });

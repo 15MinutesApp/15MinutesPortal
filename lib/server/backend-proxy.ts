@@ -35,17 +35,24 @@ export async function proxyRequestToBackend(
   }
 
   // Gelen isteğin Cookie header'ını backend'e iletiyoruz (TOTP challenge token için gerekli).
-  if (req.headers.has("cookie")) {
-    const cookieHeader = req.headers.get("cookie")!;
+  // Retry durumunda x-retry-cookies header'ı varsa onu kullan (token refresh sonrası)
+  const cookieHeader = req.headers.get("x-retry-cookies") || req.headers.get("cookie");
+  
+  if (cookieHeader) {
     console.log("[Backend Proxy] Request cookies:", cookieHeader);
 
     headers.set("cookie", cookieHeader);
 
     // Cookie'den access_token'ı alıp Bearer token olarak Authorization header'ına ekle
+    // Retry durumunda x-retry-authorization header'ı varsa onu kullan (token refresh sonrası)
+    const retryAuthorization = req.headers.get("x-retry-authorization");
     const accessTokenMatch = cookieHeader.match(/accessToken=([^;]+)/);
     const refreshTokenMatch = cookieHeader.match(/refreshToken=([^;]+)/);
-
-    if (accessTokenMatch) {
+    
+    if (retryAuthorization) {
+      console.log("[Backend Proxy] Using retry authorization header");
+      headers.set("authorization", retryAuthorization);
+    } else if (accessTokenMatch) {
       const accessToken = accessTokenMatch[1];
       console.log(
         "[Backend Proxy] Found access token in cookie, setting Authorization header"

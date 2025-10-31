@@ -1,10 +1,11 @@
 "use client";
 
-import * as React from "react";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
-import { Input } from "@/components/ui/input";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -14,32 +15,31 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Search, Plus, Pencil, Trash2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Toaster } from "@/components/ui/toaster";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Interest } from "./types";
-import { useQuery, useMutation } from "@apollo/client/react";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
-  ADMIN_INTEREST_CATEGORIES,
-  ADMIN_UPDATE_INTEREST_STATUS,
   ADMIN_CREATE_INTEREST,
   ADMIN_CREATE_INTEREST_CATEGORY,
-  ADMIN_UPDATE_INTEREST,
-  ADMIN_UPDATE_INTEREST_CATEGORY,
   ADMIN_DELETE_INTEREST,
   ADMIN_DELETE_INTEREST_CATEGORY,
+  ADMIN_INTEREST_CATEGORIES,
+  ADMIN_UPDATE_INTEREST,
+  ADMIN_UPDATE_INTEREST_CATEGORY,
+  ADMIN_UPDATE_INTEREST_STATUS,
 } from "@/lib/apollo/queries";
+import { useMutation, useQuery } from "@apollo/client/react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import * as React from "react";
+import { useEffect, useState } from "react";
 import { AddInterestDialog } from "./main/add/page";
-import { AddSubInterestDialog } from "./sub/add/page";
 import { EditInterestDialog } from "./main/edit/page";
+import { AddSubInterestDialog } from "./sub/add/page";
 import { EditSubInterestDialog } from "./sub/edit/page";
+import { Interest } from "./types";
 
 interface GraphQLInterest {
   id: string;

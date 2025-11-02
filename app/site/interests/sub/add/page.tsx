@@ -127,8 +127,8 @@ export function AddSubInterestDialog({
 
     if (!formData.name.trim()) {
       toast({
-        title: "Hata",
-        description: "İsim alanı zorunludur.",
+        title: "Error",
+        description: "Name field is required.",
         variant: "destructive",
       });
       return;
@@ -154,8 +154,8 @@ export function AddSubInterestDialog({
         }
 
         toast({
-          title: "Başarılı",
-          description: "Alt kategori başarıyla güncellendi.",
+          title: "Success",
+          description: "Sub category updated successfully.",
           variant: "default",
         });
       } else {
@@ -175,8 +175,8 @@ export function AddSubInterestDialog({
         }
 
         toast({
-          title: "Başarılı",
-          description: "Alt kategori başarıyla eklendi.",
+          title: "Success",
+          description: "Sub category added successfully.",
           variant: "default",
         });
       }
@@ -189,8 +189,8 @@ export function AddSubInterestDialog({
       setOpen(false);
     } catch (error) {
       toast({
-        title: "Hata",
-        description: "Alt kategori eklenirken bir hata oluştu.",
+        title: "Error",
+        description: "An error occurred while adding the sub category.",
         variant: "destructive",
       });
     } finally {
@@ -213,18 +213,18 @@ export function AddSubInterestDialog({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>
-            {editSubInterest ? "Alt Kategori Düzenle" : "Alt Kategori Ekle"} -{" "}
+            {editSubInterest ? "Edit Sub Category" : "Add Sub Category"} -{" "}
             {parentInterest.name}
           </DialogTitle>
           <DialogDescription>
             {editSubInterest
-              ? `${parentInterest.name} kategorisindeki alt kategoriyi düzenleyin`
-              : `${parentInterest.name} kategorisi için yeni bir alt kategori oluşturun`}
+              ? `Edit the sub category in the ${parentInterest.name} category`
+              : `Create a new sub category for the ${parentInterest.name} category`}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="name">İsim</Label>
+            <Label htmlFor="name">Name</Label>
             <Input
               id="name"
               value={formData.name}
@@ -258,7 +258,7 @@ export function AddSubInterestDialog({
                   className="w-full bg-[#FFCDE1] hover:bg-[#CDFBFF] text-[#1C1C1C] hover:text-[#1C1C1C] cursor-pointer"
                 >
                   <Upload className="h-4 w-4 mr-2 text-[#1C1C1C] hover:text-[#1C1C1C]" />
-                  Thumbnail Yükle
+                  Upload Thumbnail
                 </Button>
               </div>
               {formData.thumbnail && (
@@ -282,16 +282,16 @@ export function AddSubInterestDialog({
                 setOpen(false);
               }}
             >
-              İptal
+              Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>
               {isLoading
                 ? editSubInterest
-                  ? "Güncelleniyor..."
-                  : "Ekleniyor..."
+                  ? "Updating..."
+                  : "Adding..."
                 : editSubInterest
-                ? "Alt Kategori Güncelle"
-                : "Alt Kategori Ekle"}
+                ? "Update Sub Category"
+                : "Add Sub Category"}
             </Button>
           </DialogFooter>
         </form>

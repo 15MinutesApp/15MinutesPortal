@@ -66,7 +66,7 @@ export default function ReportsPage() {
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <p className="text-muted-foreground">Yükleniyor...</p>
+        <p className="text-muted-foreground">Loading...</p>
       </div>
     );
   }
@@ -79,14 +79,14 @@ export default function ReportsPage() {
     <div className="flex flex-col h-screen">
       <header className="flex h-16 shrink-0 items-center gap-2 bg-background">
         <div className="flex items-center gap-2 px-4">
-          <h1 className="text-xl font-bold text-foreground">Raporlar</h1>
+          <h1 className="text-xl font-bold text-foreground">Reports</h1>
         </div>
       </header>
       <div className="flex flex-1 flex-col gap-6 p-6">
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <p className="text-muted-foreground">
-              Şikayet edilen kullanıcıları görüntüleyin ve yönetin
+              View and manage reported users
             </p>
           </div>
         </div>
@@ -105,7 +105,7 @@ export default function ReportsPage() {
                             : "secondary"
                         }
                       >
-                        {user.status === "pending" ? "Beklemede" : "İncelendi"}
+                        {user.status === "pending" ? "Pending" : "Reviewed"}
                       </Badge>
                     </CardTitle>
                     <CardDescription className="text-muted-foreground">
@@ -120,7 +120,7 @@ export default function ReportsPage() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-foreground">
-                        Şikayet Sayısı:
+                        Report Count:
                       </span>
                       <Badge
                         variant="outline"
@@ -131,7 +131,7 @@ export default function ReportsPage() {
                     </div>
                     <p className="text-sm text-muted-foreground">
                       <span className="font-medium text-foreground">
-                        Sebep:
+                        Reason:
                       </span>{" "}
                       {user.reason}
                     </p>
@@ -143,14 +143,14 @@ export default function ReportsPage() {
                       variant="outline"
                       className="border-border text-foreground hover:bg-muted bg-transparent"
                     >
-                      İncele
+                      Review
                     </Button>
                     <Button
                       size="sm"
                       className="bg-primary text-primary-foreground hover:bg-primary/90"
                     >
                       <Ban className="mr-2 h-4 w-4" />
-                      Engelle
+                      Block
                     </Button>
                   </div>
                 </div>

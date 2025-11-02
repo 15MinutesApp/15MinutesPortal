@@ -3,26 +3,26 @@ import { Users, Heart, TrendingUp, Clock } from "lucide-react"
 
 const stats = [
   {
-    title: "Toplam Kullanıcı",
+    title: "Total Users",
     value: "2,543",
     change: "+12.5%",
     icon: Users,
   },
   {
-    title: "Aktif İlgi Alanları",
+    title: "Active Interests",
     value: "156",
     change: "+8.2%",
     icon: Heart,
   },
   {
-    title: "Günlük Aktivite",
+    title: "Daily Activity",
     value: "1,234",
     change: "+23.1%",
     icon: TrendingUp,
   },
   {
-    title: "Ortalama Süre",
-    value: "15 dk",
+    title: "Average Duration",
+    value: "15 min",
     change: "+2.4%",
     icon: Clock,
   },
@@ -39,7 +39,7 @@ export function StatsCards() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-foreground">{stat.value}</div>
-            <p className="text-xs text-primary">{stat.change} son aydan</p>
+            <p className="text-xs text-primary">{stat.change} from last month</p>
           </CardContent>
         </Card>
       ))}

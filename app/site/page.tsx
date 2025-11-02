@@ -39,7 +39,7 @@ export default function Page() {
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <p className="text-muted-foreground">Yükleniyor...</p>
+        <p className="text-muted-foreground">Loading...</p>
       </div>
     );
   }
@@ -59,7 +59,7 @@ export default function Page() {
       <div className="flex flex-1 flex-col gap-6 p-6">
         <div className="space-y-1">
           <p className="text-muted-foreground">
-            15minutes mobil uygulama yönetim paneline hoş geldiniz
+            Welcome to the 15minutes mobile app management panel
           </p>
         </div>
         <StatsCards />

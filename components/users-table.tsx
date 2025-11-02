@@ -50,18 +50,18 @@ export function UsersTable() {
   return (
     <Card className="bg-card border-border">
       <CardHeader>
-        <CardTitle className="text-foreground">Son Kullanıcılar</CardTitle>
-        <CardDescription className="text-muted-foreground">Sisteme kayıtlı kullanıcıların listesi</CardDescription>
+        <CardTitle className="text-foreground">Recent Users</CardTitle>
+        <CardDescription className="text-muted-foreground">List of users registered in the system</CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow className="border-border hover:bg-muted/50">
-              <TableHead className="text-foreground">Kullanıcı</TableHead>
+              <TableHead className="text-foreground">User</TableHead>
               <TableHead className="text-foreground">Email</TableHead>
-              <TableHead className="text-foreground">Durum</TableHead>
-              <TableHead className="text-foreground">İlgi Alanları</TableHead>
-              <TableHead className="text-foreground">Kayıt Tarihi</TableHead>
+              <TableHead className="text-foreground">Status</TableHead>
+              <TableHead className="text-foreground">Interests</TableHead>
+              <TableHead className="text-foreground">Join Date</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -87,7 +87,7 @@ export function UsersTable() {
                     variant={user.status === "active" ? "default" : "secondary"}
                     className={user.status === "active" ? "bg-primary text-primary-foreground" : ""}
                   >
-                    {user.status === "active" ? "Aktif" : "Pasif"}
+                    {user.status === "active" ? "Active" : "Inactive"}
                   </Badge>
                 </TableCell>
                 <TableCell className="text-foreground">{user.interests}</TableCell>

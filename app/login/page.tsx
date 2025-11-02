@@ -77,13 +77,13 @@ export default function LoginPage() {
       console.log("Login successful, challenge token received");
       setChallengeToken(data.data.Admin_startPasswordLogin);
       setStep(2);
-      toast.success("Email ve şifre doğrulandı. Lütfen TOTP kodunuzu girin.");
+      toast.success("Email and password verified. Please enter your TOTP code.");
     } catch (error) {
       console.error("Login error details:", error);
       toast.error(
         error instanceof Error
           ? error.message
-          : "Bir hata oluştu. Lütfen tekrar deneyin."
+          : "An error occurred. Please try again."
       );
     } finally {
       setIsLoading(false);
@@ -136,7 +136,7 @@ export default function LoginPage() {
       // Tokens are now in HTTP-only cookies set by backend
       // Update auth context with email only
       login("", "", email);
-      toast.success("Giriş başarılı! Yönlendiriliyorsunuz...");
+      toast.success("Login successful! Redirecting...");
 
       // Full page reload to ensure cookies are properly set and AuthContext refreshes
       window.location.href = "/";
@@ -145,7 +145,7 @@ export default function LoginPage() {
       toast.error(
         error instanceof Error
           ? error.message
-          : "Bir hata oluştu. Lütfen tekrar deneyin."
+          : "An error occurred. Please try again."
       );
     } finally {
       setIsLoading(false);
@@ -180,14 +180,14 @@ export default function LoginPage() {
               />
             </div>
             <CardTitle className="text-2xl font-bold text-foreground">
-              {step === 1 ? "Giriş Yap" : "Doğrulama"}
+              {step === 1 ? "Sign In" : "Verification"}
             </CardTitle>
             <CardDescription className="mb-3 text-muted-foreground">
               {step === 1
-                ? "15 Minutes Carpenter'a hoş geldiniz."
+                ? "Welcome to 15 Minutes Carpenter."
                 : useBackupCode
-                ? "Lütfen backup kodunuzu girin"
-                : "Lütfen TOTP kodunuzu girin"}
+                ? "Please enter your backup code"
+                : "Please enter your TOTP code"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -195,7 +195,7 @@ export default function LoginPage() {
               <form onSubmit={handleFirstStep} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email" className="text-foreground">
-                    E-posta
+                    Email
                   </Label>
                   <Input
                     id="email"
@@ -207,7 +207,7 @@ export default function LoginPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password" className="text-foreground">
-                    Şifre
+                    Password
                   </Label>
                   <InputGroup>
                     <InputGroupInput
@@ -221,7 +221,7 @@ export default function LoginPage() {
                       <InputGroupButton
                         type="button"
                         aria-label={
-                          showPassword ? "Şifreyi gizle" : "Şifreyi göster"
+                          showPassword ? "Hide password" : "Show password"
                         }
                         onClick={() => setShowPassword((v) => !v)}
                         className="cursor-pointer"
@@ -236,7 +236,7 @@ export default function LoginPage() {
                   className="w-full bg-[#FFCDE1] hover:bg-[#CDFBFF] text-[#1C1C1C] cursor-pointer"
                   disabled={isLoading}
                 >
-                  {isLoading ? "Gönderiliyor..." : "Devam Et"}
+                  {isLoading ? "Submitting..." : "Continue"}
                 </Button>
               </form>
             ) : (
@@ -296,7 +296,7 @@ export default function LoginPage() {
                         }}
                         className="underline text-sm text-[#e0528a] hover:opacity-80 cursor-pointer"
                       >
-                        TOTP Kodu ile giriş yap
+                        Sign in with TOTP Code
                       </button>
                     ) : (
                       <button
@@ -308,7 +308,7 @@ export default function LoginPage() {
                         }}
                         className="underline text-sm text-[#e0528a] hover:opacity-80 cursor-pointer"
                       >
-                        Backup Kod ile giriş yap
+                        Sign in with Backup Code
                       </button>
                     )}
                   </div>
@@ -319,7 +319,7 @@ export default function LoginPage() {
                     className="w-full bg-[#FFCDE1] hover:bg-[#CDFBFF] text-[#1C1C1C] cursor-pointer"
                     disabled={isLoading}
                   >
-                    {isLoading ? "Doğrulanıyor..." : "Giriş Yap"}
+                    {isLoading ? "Verifying..." : "Sign In"}
                   </Button>
                 </div>
               </form>

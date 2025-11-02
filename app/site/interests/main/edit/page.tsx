@@ -104,8 +104,8 @@ export function EditInterestDialog({
   const handleSubmit = async () => {
     if (!formData.name || !editInterest) {
       toast({
-        title: "Hata",
-        description: "Lütfen kategori adını girin",
+        title: "Error",
+        description: "Please enter the category name",
         variant: "destructive",
       });
       return;
@@ -126,16 +126,16 @@ export function EditInterestDialog({
       await onUpdate(updatedInterest);
 
       toast({
-        title: "Başarılı",
-        description: `"${formData.name}" kategorisi başarıyla güncellendi`,
+        title: "Success",
+        description: `Category "${formData.name}" updated successfully`,
         variant: "default",
       });
 
       onOpenChange(false);
     } catch (error) {
       toast({
-        title: "Hata",
-        description: "İşlem sırasında bir hata oluştu",
+        title: "Error",
+        description: "An error occurred during the operation",
         variant: "destructive",
       });
     } finally {
@@ -147,14 +147,14 @@ export function EditInterestDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>İlgi Alanını Düzenle</DialogTitle>
+          <DialogTitle>Edit Interest</DialogTitle>
           <DialogDescription>
-            Ana kategori bilgilerini güncelleyin
+            Update main category information
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="name">Kategori Adı</Label>
+            <Label htmlFor="name">Category Name</Label>
             <Input
               id="name"
               placeholder="Spor, Oyun, Müzik..."
@@ -188,7 +188,7 @@ export function EditInterestDialog({
                   className="w-full bg-[#FFCDE1] hover:bg-[#CDFBFF] text-[#1C1C1C] hover:text-[#1C1C1C] cursor-pointer"
                 >
                   <Upload className="h-4 w-4 mr-2 text-[#1C1C1C] hover:text-[#1C1C1C]" />
-                  Thumbnail Yükle
+                  Upload Thumbnail
                 </Button>
               </div>
               {formData.thumbnail && (
@@ -205,10 +205,10 @@ export function EditInterestDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            İptal
+            Cancel
           </Button>
           <Button type="submit" onClick={handleSubmit} disabled={isLoading}>
-            {isLoading ? "Güncelleniyor..." : "Güncelle"}
+            {isLoading ? "Updating..." : "Update"}
           </Button>
         </DialogFooter>
       </DialogContent>

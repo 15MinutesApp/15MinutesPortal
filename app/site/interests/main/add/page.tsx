@@ -133,8 +133,8 @@ export function AddInterestDialog({
   const handleSubmit = async () => {
     if (!formData.name) {
       toast({
-        title: "Hata",
-        description: "Lütfen kategori adını girin",
+        title: "Error",
+        description: "Please enter the category name",
         variant: "destructive",
       });
       return;
@@ -157,8 +157,8 @@ export function AddInterestDialog({
         await onUpdate?.(updatedInterest);
 
         toast({
-          title: "Başarılı",
-          description: `"${formData.name}" kategorisi başarıyla güncellendi`,
+          title: "Success",
+          description: `Category "${formData.name}" updated successfully`,
           variant: "default",
         });
       } else {
@@ -176,8 +176,8 @@ export function AddInterestDialog({
         await onAdd?.(newInterest);
 
         toast({
-          title: "Başarılı",
-          description: `"${formData.name}" kategorisi başarıyla eklendi`,
+          title: "Success",
+          description: `Category "${formData.name}" added successfully`,
           variant: "default",
         });
       }
@@ -186,8 +186,8 @@ export function AddInterestDialog({
       resetForm();
     } catch (error) {
       toast({
-        title: "Hata",
-        description: "İşlem sırasında bir hata oluştu",
+        title: "Error",
+        description: "An error occurred during the operation",
         variant: "destructive",
       });
     } finally {
@@ -200,17 +200,17 @@ export function AddInterestDialog({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>
-            {editInterest ? "İlgi Alanını Düzenle" : "Yeni İlgi Alanı Ekle"}
+            {editInterest ? "Edit Interest" : "Add New Interest"}
           </DialogTitle>
           <DialogDescription>
             {editInterest
-              ? "Ana kategori bilgilerini güncelleyin"
-              : "Yeni bir ana kategori oluşturun"}
+              ? "Update main category information"
+              : "Create a new main category"}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="name">Kategori Adı</Label>
+            <Label htmlFor="name">Category Name</Label>
             <Input
               id="name"
               placeholder="Spor, Oyun, Müzik..."
@@ -244,7 +244,7 @@ export function AddInterestDialog({
                   className="w-full bg-[#FFCDE1] hover:bg-[#CDFBFF] text-[#1C1C1C] hover:text-[#1C1C1C] cursor-pointer"
                 >
                   <Upload className="h-4 w-4 mr-2 text-[#1C1C1C] hover:text-[#1C1C1C]" />
-                  Thumbnail Yükle
+                  Upload Thumbnail
                 </Button>
               </div>
               {formData.thumbnail && (
@@ -267,14 +267,14 @@ export function AddInterestDialog({
               resetForm();
             }}
           >
-            İptal
+            Cancel
           </Button>
           <Button type="submit" onClick={handleSubmit} disabled={isLoading}>
             {isLoading
-              ? "Kaydediliyor..."
+              ? "Saving..."
               : editInterest
-              ? "Güncelle"
-              : "Kaydet"}
+              ? "Update"
+              : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>

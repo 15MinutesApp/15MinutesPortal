@@ -112,8 +112,8 @@ export function EditSubInterestDialog({
 
     if (!formData.name.trim()) {
       toast({
-        title: "Hata",
-        description: "İsim alanı zorunludur.",
+        title: "Error",
+        description: "Name field is required.",
         variant: "destructive",
       });
       return;
@@ -135,16 +135,16 @@ export function EditSubInterestDialog({
       await onUpdate(updatedSubInterest);
 
       toast({
-        title: "Başarılı",
-        description: "Alt kategori başarıyla güncellendi.",
+        title: "Success",
+        description: "Sub category updated successfully.",
         variant: "default",
       });
 
       onOpenChange(false);
     } catch (error) {
       toast({
-        title: "Hata",
-        description: "Alt kategori güncellenirken bir hata oluştu.",
+        title: "Error",
+        description: "An error occurred while updating the sub category.",
         variant: "destructive",
       });
     } finally {
@@ -157,15 +157,15 @@ export function EditSubInterestDialog({
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>
-            Alt Kategori Düzenle - {parentInterest.name}
+            Edit Sub Category - {parentInterest.name}
           </DialogTitle>
           <DialogDescription>
-            {parentInterest.name} kategorisindeki alt kategoriyi düzenleyin
+            Edit the sub category in the {parentInterest.name} category
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="name">İsim</Label>
+            <Label htmlFor="name">Name</Label>
             <Input
               id="name"
               value={formData.name}
@@ -199,7 +199,7 @@ export function EditSubInterestDialog({
                   className="w-full bg-[#FFCDE1] hover:bg-[#CDFBFF] text-[#1C1C1C] hover:text-[#1C1C1C] cursor-pointer"
                 >
                   <Upload className="h-4 w-4 mr-2 text-[#1C1C1C] hover:text-[#1C1C1C]" />
-                  Thumbnail Yükle
+                  Upload Thumbnail
                 </Button>
               </div>
               {formData.thumbnail && (
@@ -219,10 +219,10 @@ export function EditSubInterestDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
             >
-              İptal
+              Cancel
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {isLoading ? "Güncelleniyor..." : "Alt Kategori Güncelle"}
+              {isLoading ? "Updating..." : "Update Sub Category"}
             </Button>
           </DialogFooter>
         </form>

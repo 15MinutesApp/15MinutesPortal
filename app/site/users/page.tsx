@@ -9,7 +9,6 @@ import {
   ChevronsRight,
   MoreVertical,
   Columns,
-  Plus,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -60,6 +59,36 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+// Fake data as JSON string
+const FAKE_USERS_JSON = `[
+  {
+    "id": 1,
+    "name": "John",
+    "surname": "Doe",
+    "email": "john.doe@example.com",
+    "username": "johndoe",
+    "password": "password123",
+    "phone": "+1 234 567 8900",
+    "birthDate": "1990-05-15",
+    "role": "premium",
+    "interestCount": 5,
+    "connectionCount": 12
+  },
+  {
+    "id": 2,
+    "name": "Jane",
+    "surname": "Smith",
+    "email": "jane.smith@example.com",
+    "username": "janesmith",
+    "password": "password123",
+    "phone": "+1 234 567 8901",
+    "birthDate": "1992-08-20",
+    "role": "free",
+    "interestCount": 2,
+    "connectionCount": 5
+  }
+]`;
 
 // Get users from localStorage or initialize empty array
 const getUserData = () => {
@@ -198,7 +227,7 @@ function createColumns(
     },
     {
       accessorKey: "interestCount",
-      header: "Interest Count",
+      header: "Interest",
       cell: ({ row }) => (
         <div className="w-24">
           <span className="text-sm">{row.original.interestCount ?? 0}</span>
@@ -207,7 +236,7 @@ function createColumns(
     },
     {
       accessorKey: "connectionCount",
-      header: "Connection Count",
+      header: "Connection",
       cell: ({ row }) => (
         <div className="w-32">
           <span className="text-sm">{row.original.connectionCount ?? 0}</span>
@@ -216,12 +245,12 @@ function createColumns(
     },
     {
       accessorKey: "role",
-      header: "Role",
+      header: "Subscription",
       cell: ({ row }) => {
         const roleColors = {
           premium:
-            "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
-          free: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
+            "bg-green-100 text-gray-800 dark:bg-green-900 dark:text-gray-200",
+          free: "bg-yellow-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
         };
 
         return (
@@ -328,18 +357,45 @@ function DataTable() {
       );
     };
 
+    // Initialize fake data if localStorage is empty
+    if (typeof window !== "undefined" && window.localStorage) {
+      const existingData = localStorage.getItem("updatedUserData");
+
+      if (existingData) {
+        // Ensure new fields exist
+        const users = JSON.parse(existingData);
+        let needsUpdate = false;
+        const updatedUsers = users.map((user: any) => {
+          if (user.interestCount === undefined) {
+            user.interestCount = 0;
+            needsUpdate = true;
+          }
+          if (user.connectionCount === undefined) {
+            user.connectionCount = 0;
+            needsUpdate = true;
+          }
+          return user;
+        });
+
+        if (needsUpdate) {
+          localStorage.setItem("updatedUserData", JSON.stringify(updatedUsers));
+        }
+      } else {
+        // Initialize fake data if localStorage is empty
+        const fakeUsers = JSON.parse(FAKE_USERS_JSON);
+        localStorage.setItem("updatedUserData", FAKE_USERS_JSON);
+      }
+    }
+
     // Load data on mount
     handleStorageChange();
 
     // Listen for storage events (cross-tab)
     if (typeof window !== "undefined") {
       window.addEventListener("storage", handleStorageChange);
-      // Listen for custom user added event (same tab)
-      window.addEventListener("userAdded", handleStorageChange);
 
       return () => {
         window.removeEventListener("storage", handleStorageChange);
-        window.removeEventListener("userAdded", handleStorageChange);
       };
     }
   }, []);
@@ -435,7 +491,7 @@ function DataTable() {
             <SelectItem value="free">Free</SelectItem>
           </SelectContent>
         </Select>
-        <TabsList className="**:data-[slot=badge]:bg-muted-foreground/30 hidden **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:px-1 @4xl/main:flex">
+        <TabsList className="bg-pink-300/10 **:data-[slot=badge]:bg-muted-foreground/30 hidden **:data-[slot=badge]:size-5 **:data-[slot=badge]:rounded-full **:data-[slot=badge]:px-1 @4xl/main:flex">
           <TabsTrigger value="all-users">All Users</TabsTrigger>
           <TabsTrigger value="premium">
             Premium{" "}
@@ -498,23 +554,15 @@ function DataTable() {
                 })}
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push("/users/add")}
-          >
-            <Plus />
-            <span className="hidden lg:inline">Add User</span>
-          </Button>
         </div>
       </div>
       <TabsContent
         value={activeTab}
         className="relative flex flex-col gap-4 overflow-auto px-14"
       >
-        <div className="overflow-hidden rounded-lg border">
+        <div className="overflow-hidden rounded-lg border border-pink-400/30">
           <Table>
-            <TableHeader className="bg-muted sticky top-0 z-10">
+            <TableHeader className="bg-pink-300/10 sticky top-0 z-10">
               {table.getHeaderGroups().map((headerGroup) => (
                 <TableRow key={headerGroup.id}>
                   {headerGroup.headers.map((header) => {
@@ -552,7 +600,7 @@ function DataTable() {
                     colSpan={columns.length}
                     className="h-24 text-center"
                   >
-                    No users found for this role.
+                    No users found for this subscription.
                   </TableCell>
                 </TableRow>
               )}

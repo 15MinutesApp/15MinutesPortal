@@ -63,6 +63,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Get users from localStorage or initialize empty array
 const getUserData = () => {
+  if (typeof window === "undefined" || !window.localStorage) {
+    return [];
+  }
   const stored = localStorage.getItem("updatedUserData");
   return stored ? JSON.parse(stored) : [];
 };
@@ -279,14 +282,7 @@ function createColumns(
 }
 
 function DataTable() {
-  const [data, setData] = React.useState(() => {
-    // Get all users from localStorage
-    const allUsers = getUserData();
-    // Sort by ID in descending order (newest first)
-    return allUsers.sort(
-      (a: z.infer<typeof schema>, b: z.infer<typeof schema>) => b.id - a.id
-    );
-  });
+  const [data, setData] = React.useState<z.infer<typeof schema>[]>([]);
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({});
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -332,19 +328,20 @@ function DataTable() {
       );
     };
 
-    // Listen for storage events (cross-tab)
-    window.addEventListener("storage", handleStorageChange);
-
-    // Listen for custom user added event (same tab)
-    window.addEventListener("userAdded", handleStorageChange);
-
-    // Also check on component mount
+    // Load data on mount
     handleStorageChange();
 
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("userAdded", handleStorageChange);
-    };
+    // Listen for storage events (cross-tab)
+    if (typeof window !== "undefined") {
+      window.addEventListener("storage", handleStorageChange);
+      // Listen for custom user added event (same tab)
+      window.addEventListener("userAdded", handleStorageChange);
+
+      return () => {
+        window.removeEventListener("storage", handleStorageChange);
+        window.removeEventListener("userAdded", handleStorageChange);
+      };
+    }
   }, []);
 
   // Filter data based on active tab
